@@ -17,18 +17,25 @@ class TelegramClient {
     }
 
     try {
-      // Create bot instance with webhook support for Render
-      this.bot = new TelegramBot(config.telegram.botToken, { 
-        webHook: {
-          port: config.server.port || 3000,
-          host: '0.0.0.0'
-        }
-      });
+      // Create bot instance - use polling for background worker, webhooks for web service
+      if (config.server.nodeEnv === 'production' && !config.server.port) {
+        // Background worker - use polling
+        this.bot = new TelegramBot(config.telegram.botToken, { polling: true });
+        console.log('✅ Telegram bot using polling (Background Worker mode)');
+      } else {
+        // Web service - use webhooks
+        this.bot = new TelegramBot(config.telegram.botToken, { 
+          webHook: {
+            port: config.server.port || 3000,
+            host: '0.0.0.0'
+          }
+        });
 
-      // Set webhook if URL is provided (for Render deployment)
-      if (config.telegram.webhookUrl) {
-        await this.bot.setWebHook(`${config.telegram.webhookUrl}/bot${config.telegram.botToken}`);
-        console.log('✅ Telegram webhook set for Render deployment');
+        // Set webhook if URL is provided (for Render web service deployment)
+        if (config.telegram.webhookUrl) {
+          await this.bot.setWebHook(`${config.telegram.webhookUrl}/bot${config.telegram.botToken}`);
+          console.log('✅ Telegram webhook set for Render web service deployment');
+        }
       }
 
       // Set bot commands for the suggestion bar
