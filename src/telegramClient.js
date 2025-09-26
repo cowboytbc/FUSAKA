@@ -113,7 +113,7 @@ class TelegramClient {
 **Market Cap:** ${this.priceClient.formatMarketCap(priceData.marketCap)}
 **24h Volume:** ${this.priceClient.formatMarketCap(priceData.volume24h)}
 
-*Data from ${priceData.source || 'API'} • Multi-API Failover System*`;
+*Data from ${priceData.source || 'CoinGecko'}*`;
 
         await this.bot.sendMessage(chatId, message, {
           parse_mode: 'Markdown',
@@ -143,8 +143,8 @@ class TelegramClient {
         }
 
         const vitalikComment = priceData.change24h >= 0 
-          ? "Looking good! The network effect continues to grow. 🚀"
-          : "Just a short-term fluctuation. Focus on the technology, not the price action. 🔧";
+          ? "Looking good! The Fusaka upgrade on Dec 3rd will make this even better. 🚀"
+          : "Short-term price, long-term revolution. The Fusaka upgrade changes everything! 🔧";
 
         const message = `⚡ **Ethereum (ETH)**
 
@@ -154,9 +154,9 @@ class TelegramClient {
 
 *${vitalikComment}*
 
-*Data from ${priceData.source || 'API'} • Multi-API System*
+*Data from ${priceData.source || 'CoinGecko'}*
 
-Want to discuss Ethereum's tech? Use \`/ask\`!`;
+💡 **Fusaka Upgrade coming Dec 3rd!** Check \`/price FUSAKA\` for our token!`;
 
         await this.bot.sendMessage(chatId, message, {
           parse_mode: 'Markdown',
@@ -194,7 +194,7 @@ Want to discuss Ethereum's tech? Use \`/ask\`!`;
 
 ${trendingList}
 
-*Data from ${sourceAPI} • Multi-API System*
+*Data from ${sourceAPI}*
 
 Use \`/price [symbol]\` to get detailed data!`;
 
@@ -215,20 +215,23 @@ Use \`/price [symbol]\` to get detailed data!`;
     // Handle /start command
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
-      const welcomeMessage = `Hello! I'm FUSAKA AI, embodying the thoughts and perspectives of Vitalik Buterin! 🤖⚡
+      const welcomeMessage = `Hello! I'm FUSAKA AI, inspired by the brilliant mind of Vitalik Buterin! 🤖⚡
+
+I represent the FUSAKA token - named after the groundbreaking Ethereum upgrade that's revolutionizing blockchain scaling! I channel Vitalik's thinking style while discussing both the technical marvels of the Fusaka upgrade AND our amazing memecoin community.
 
 **What I can do:**
-💬 \`/ask [question]\` - Ask me anything about crypto, tech, philosophy
-💰 \`/price [symbol]\` - Get real-time crypto prices
-⚡ \`/eth\` - Quick Ethereum price check
+💬 \`/ask [question]\` - Discuss Fusaka upgrade, crypto, tech, DeFi, governance
+💰 \`/price [symbol]\` - Get real-time crypto prices (try \`/price FUSAKA\`!)
+⚡ \`/eth\` - Quick Ethereum price check with upgrade insights
 🔥 \`/trending\` - See what's trending in crypto
 
 **Examples:**
-• \`/ask What's your vision for Ethereum 2030?\`
-• \`/price BTC\` or \`/price bitcoin\`
-• \`/eth\` for instant ETH data
+• \`/ask What makes the Fusaka upgrade so revolutionary?\`
+• \`/ask How will PeerDAS change Ethereum's future?\`
+• \`/price FUSAKA\` to check our token price!
+• \`/price ETH\` for Ethereum updates
 
-Let's explore the fascinating world of crypto and technology together! 🚀`;
+Join our community celebrating both cutting-edge tech AND the memecoin revolution! 🚀🎭`;
 
       await this.bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown' });
     });
