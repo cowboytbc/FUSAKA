@@ -113,7 +113,7 @@ class TelegramClient {
 **Market Cap:** ${this.priceClient.formatMarketCap(priceData.marketCap)}
 **24h Volume:** ${this.priceClient.formatMarketCap(priceData.volume24h)}
 
-*Data from CoinGecko API*`;
+*Data from ${priceData.source || 'API'} • Multi-API Failover System*`;
 
         await this.bot.sendMessage(chatId, message, {
           parse_mode: 'Markdown',
@@ -154,6 +154,8 @@ class TelegramClient {
 
 *${vitalikComment}*
 
+*Data from ${priceData.source || 'API'} • Multi-API System*
+
 Want to discuss Ethereum's tech? Use \`/ask\`!`;
 
         await this.bot.sendMessage(chatId, message, {
@@ -184,14 +186,15 @@ Want to discuss Ethereum's tech? Use \`/ask\`!`;
         }
 
         const trendingList = trending.map((coin, index) => 
-          `${index + 1}. **${coin.item.name}** (${coin.item.symbol})`
+          `${index + 1}. **${coin.name}** (${coin.symbol})`
         ).join('\n');
 
+        const sourceAPI = trending[0]?.source || 'API';
         const message = `🔥 **Trending Cryptocurrencies**
 
 ${trendingList}
 
-*These are the most searched coins on CoinGecko*
+*Data from ${sourceAPI} • Multi-API System*
 
 Use \`/price [symbol]\` to get detailed data!`;
 
