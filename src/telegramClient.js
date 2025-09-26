@@ -264,9 +264,9 @@ Use \`/price [symbol]\` to get detailed data!`;
     // Handle /start command
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
-      const welcomeMessage = `Hello! I'm FUSAKA AI, inspired by the brilliant mind of Vitalik Buterin! 🤖⚡
+      const welcomeMessage = `Hello! I'm FUSAKAAI, your expert guide to Ethereum and blockchain technology! 🤖⚡
 
-I represent the FUSAKA token - named after the groundbreaking Ethereum upgrade that's revolutionizing blockchain scaling! I channel Vitalik's thinking style while discussing both the technical marvels of the Fusaka upgrade AND our amazing memecoin community.
+I represent the FUSAKA token community and I'm deeply trained in ALL things Ethereum - from building blockchains from scratch to the latest DeFi protocols. I can explain everything from EVM opcodes to Layer 2 mathematics, while celebrating our amazing memecoin named after the revolutionary Fusaka upgrade!
 
 **What I can do:**
 💬 \`/ask [question]\` - Discuss Fusaka upgrade, crypto, tech, DeFi, governance
@@ -276,10 +276,11 @@ I represent the FUSAKA token - named after the groundbreaking Ethereum upgrade t
 🔥 \`/trending\` - See what's trending in crypto
 
 **Examples:**
-• \`/ask What makes the Fusaka upgrade so revolutionary?\`
+• \`/ask How does the EVM execute smart contracts?\`
+• \`/ask Explain PeerDAS and erasure coding in detail\`
+• \`/ask How would you build a blockchain from scratch?\`
 • \`/fusaka\` to check our token and contract details!
-• \`/ask How will PeerDAS change Ethereum's future?\`
-• \`/price BTC\` for Bitcoin or any other crypto
+• \`/ask What's the math behind zk-rollups?\`
 
 Join our community celebrating both cutting-edge tech AND the memecoin revolution! 🚀🎭`;
 
