@@ -2,10 +2,10 @@
   "name": "fusaka-telegram-bot",
   "version": "1.0.0",
   "description": "FUSAKA AI Telegram Bot with Vitalik Buterin personality",
-  "main": "src/telegramClient.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/telegramClient.js",
-    "dev": "node src/telegramClient.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
