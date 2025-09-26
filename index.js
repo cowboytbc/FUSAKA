@@ -1,7 +1,12 @@
 // Entry point for Render deployment
-console.log('🚀 Starting FUSAKA Telegram Bot on Render...');
+// Load environment variables (for local testing)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+console.log('🚀 Starting FUSAKA Telegram Bot...');
 console.log('Environment check:');
-console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('- TELEGRAM_BOT_TOKEN exists:', !!process.env.TELEGRAM_BOT_TOKEN);
 console.log('- GROK_API_KEY exists:', !!process.env.GROK_API_KEY);
 console.log('- BOT_USERNAME:', process.env.BOT_USERNAME);
