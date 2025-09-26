@@ -34,8 +34,33 @@ process.on('SIGINT', () => {
 // Start the bot
 try {
   console.log('📦 Loading telegramClient...');
-  require('./src/telegramClient');
+  const TelegramClient = require('./src/telegramClient');
   console.log('✅ Bot module loaded successfully');
+  
+  console.log('🚀 Starting FUSAKA Telegram Bot...');
+  const telegramClient = new TelegramClient();
+  
+  // Test connection and start bot
+  telegramClient.testConnection().then(success => {
+    if (success) {
+      console.log('🎉 FUSAKA Telegram Bot is running and ready for /ask commands!');
+      console.log('🔄 Bot will continue running in polling mode...');
+    } else {
+      console.error('❌ Failed to start bot');
+      process.exit(1);
+    }
+  }).catch(error => {
+    console.error('❌ Error starting bot:', error);
+    process.exit(1);
+  });
+
+  // Keep the process alive and handle graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('🛑 Received SIGTERM, shutting down gracefully...');
+    telegramClient.bot.stopPolling();
+    process.exit(0);
+  });
+
 } catch (error) {
   console.error('❌ Failed to start bot:', error);
   console.error('Stack trace:', error.stack);

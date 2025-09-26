@@ -61,7 +61,7 @@ Keep responses conversational but substantive. If asked about something outside 
             content: userMessage
           }
         ],
-        model: "grok-beta",
+        model: "grok-3",
         stream: false,
         temperature: 0.7
       }, {
