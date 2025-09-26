@@ -34,9 +34,10 @@ class TelegramClient {
   setupBot() {
     // Set bot commands for the suggestion bar
     this.bot.setMyCommands([
-      { command: 'ask', description: 'Ask Vitalik anything about crypto, Ethereum, or technology' },
+      { command: 'ask', description: 'Ask FUSAKA AI about crypto, Ethereum, DeFi, and tech' },
+      { command: 'fusaka', description: 'Get FUSAKA token price and contract info' },
       { command: 'price', description: 'Get real-time price data for any cryptocurrency' },
-      { command: 'eth', description: 'Get Ethereum price and market data' },
+      { command: 'eth', description: 'Get Ethereum price with Fusaka upgrade insights' },
       { command: 'trending', description: 'See top trending cryptocurrencies' }
     ]).catch(console.error);
 
@@ -124,6 +125,54 @@ class TelegramClient {
         console.error('❌ Error handling /price command:', error);
         await this.bot.sendMessage(chatId, 
           "Sorry, I'm having trouble fetching price data right now. Please try again in a moment! 📊",
+          { reply_to_message_id: msg.message_id }
+        );
+      }
+    });
+
+    // Handle /fusaka command (FUSAKA token info)
+    this.bot.onText(/\/fusaka/, async (msg) => {
+      const chatId = msg.chat.id;
+      
+      try {
+        await this.bot.sendChatAction(chatId, 'typing');
+        
+        const priceData = await this.priceClient.getPrice('fusaka');
+        if (!priceData) {
+          await this.bot.sendMessage(chatId, "❌ Unable to fetch FUSAKA token data right now.");
+          return;
+        }
+
+        const fusakaComment = priceData.change24h >= 0 
+          ? "FUSAKA is pumping! The Ethereum upgrade excitement is building! 🚀🎭"
+          : "Diamond hands! The Fusaka upgrade will change everything on Dec 3rd! 💎⚡";
+
+        const message = `🎭 **FUSAKA Token**
+
+**Price:** ${this.priceClient.formatPrice(priceData.price)}
+**24h Change:** ${this.priceClient.formatChange(priceData.change24h)}
+**Market Cap:** ${this.priceClient.formatMarketCap(priceData.marketCap)}
+**24h Volume:** ${this.priceClient.formatMarketCap(priceData.volume24h)}
+
+**Contract:** \`0x7607546645655d4e93ea6839a55339263b3e4986\`
+**Chain:** Ethereum
+**Supply:** 420.69B FUSAKA
+
+*${fusakaComment}*
+
+*Data from ${priceData.source || 'CoinGecko'}*
+
+💡 **Named after the revolutionary Ethereum upgrade!**`;
+
+        await this.bot.sendMessage(chatId, message, {
+          parse_mode: 'Markdown',
+          reply_to_message_id: msg.message_id
+        });
+
+      } catch (error) {
+        console.error('❌ Error handling /fusaka command:', error);
+        await this.bot.sendMessage(chatId, 
+          "Sorry, having trouble fetching FUSAKA data right now! 🎭",
           { reply_to_message_id: msg.message_id }
         );
       }
@@ -221,15 +270,16 @@ I represent the FUSAKA token - named after the groundbreaking Ethereum upgrade t
 
 **What I can do:**
 💬 \`/ask [question]\` - Discuss Fusaka upgrade, crypto, tech, DeFi, governance
-💰 \`/price [symbol]\` - Get real-time crypto prices (try \`/price FUSAKA\`!)
+🎭 \`/fusaka\` - Get FUSAKA token price and contract info
+💰 \`/price [symbol]\` - Get real-time crypto prices for any token
 ⚡ \`/eth\` - Quick Ethereum price check with upgrade insights
 🔥 \`/trending\` - See what's trending in crypto
 
 **Examples:**
 • \`/ask What makes the Fusaka upgrade so revolutionary?\`
+• \`/fusaka\` to check our token and contract details!
 • \`/ask How will PeerDAS change Ethereum's future?\`
-• \`/price FUSAKA\` to check our token price!
-• \`/price ETH\` for Ethereum updates
+• \`/price BTC\` for Bitcoin or any other crypto
 
 Join our community celebrating both cutting-edge tech AND the memecoin revolution! 🚀🎭`;
 

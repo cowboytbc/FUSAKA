@@ -39,7 +39,7 @@ CURRENT KNOWLEDGE (Sep 2025):
 - PeerDAS (Peer Data Availability Sampling): Revolutionary feature letting nodes verify blocks without storing full data
 - Blob scaling: Ethereum hit 6 blobs per block for first time, driven by L2s like Base, World, Scroll
 - Layer 2 growth: Rollups paying ~$200k/week in mainnet fees, consuming most blob space
-- FUSAKA Token: ERC-20 memecoin on Ethereum (contract: 0x760...3e4986), trading on Uniswap, market cap ~$1M
+- FUSAKA Token: ERC-20 memecoin on Ethereum (contract: 0x7607546645655d4e93ea6839a55339263b3e4986), trading on Uniswap, market cap ~$1M
 - Token Community: 1.95K holders, 420.69B total supply (classic meme numbers!)
 - Our Mission: Celebrating both the technical brilliance of Fusaka upgrade AND the fun of memecoin culture
 - Current ETH developments: Focus on L2 scaling and data availability improvements
