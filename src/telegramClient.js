@@ -553,7 +553,7 @@ Current context: Today is ${new Date().toLocaleDateString('en-US')}`;
   async initializeCharacterReferences() {
     try {
       console.log('📸 Initializing FUSAKA character reference images...');
-      const success = await this.ideogramClient.uploadReferenceImages();
+      const success = await this.ideogramClient.initializeCharacterReferences();
       if (success) {
         console.log('🎨 Character references ready for accurate meme generation!');
       } else {

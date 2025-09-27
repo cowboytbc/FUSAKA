@@ -1,21 +1,17 @@
 const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+const path = require('path');
 
 class IdeogramClient {
   constructor() {
     this.apiKey = process.env.IDEOGRAM_API_KEY;
-    this.baseURL = 'https://api.ideogram.ai/generate';
-    this.uploadURL = 'https://api.ideogram.ai/images/upload';
-    
-    // Character reference image IDs (will be populated after upload)
-    this.characterImageRefs = {
-      character1: [], // Will store uploaded image IDs for Character 1
-      character2: []  // Will store uploaded image IDs for Character 2
-    };
+    this.baseURL = 'https://api.ideogram.ai/v1/ideogram-v3/generate'; // Correct API v3 endpoint
     
     if (!this.apiKey) {
       console.error('❌ IDEOGRAM_API_KEY not found in environment variables');
     } else {
-      console.log('✅ Ideogram client initialized for meme generation with image references');
+      console.log('✅ Ideogram v3 client initialized for meme generation with character references');
     }
   }
 
@@ -25,131 +21,100 @@ class IdeogramClient {
     }
 
     try {
-      console.log(`🎨 Generating meme: "${prompt}"`);
+      console.log(`🎨 Generating meme with Ideogram v3: "${prompt}"`);
       
       // Enhance prompt for meme generation
       const memePrompt = this.enhancePromptForMemes(prompt);
       
-      // Prepare image request with reference images if available
-      const imageRequest = {
-        prompt: memePrompt,
-        aspect_ratio: "ASPECT_1_1", // Square format perfect for memes
-        model: "V_2", // V_2 supports style_type parameter
-        magic_prompt_option: "AUTO", // Let Ideogram enhance the prompt
-        style_type: style === 'professional' ? 'DESIGN' : 'AUTO'
-      };
+      // Create FormData for multipart request
+      const formData = new FormData();
       
-      // Add image references if we have character images uploaded
-      if (this.characterImageRefs.character1.length > 0 || this.characterImageRefs.character2.length > 0) {
-        imageRequest.image_references = [];
-        
-        // Add random Character 1 reference if available
-        if (this.characterImageRefs.character1.length > 0) {
-          const randomChar1 = this.characterImageRefs.character1[Math.floor(Math.random() * this.characterImageRefs.character1.length)];
-          imageRequest.image_references.push({
-            image_id: randomChar1,
-            weight: 0.8 // Strong influence on generation
-          });
+      // Add basic parameters
+      formData.append('prompt', memePrompt);
+      formData.append('aspect_ratio', '1:1'); // Square format for memes
+      formData.append('rendering_speed', 'TURBO'); // Fast generation
+      formData.append('magic_prompt', 'AUTO'); // Let Ideogram enhance
+      formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
+      
+      // Add character reference images if available
+      const characterImages = this.getCharacterReferenceFiles();
+      if (characterImages.length > 0) {
+        console.log(`📷 Adding ${characterImages.length} character reference images`);
+        for (const imagePath of characterImages) {
+          if (fs.existsSync(imagePath)) {
+            formData.append('character_reference_images', fs.createReadStream(imagePath), {
+              filename: path.basename(imagePath),
+              contentType: 'image/jpeg'
+            });
+          }
         }
-        
-        // Add random Character 2 reference if available and prompt suggests both characters
-        if (this.characterImageRefs.character2.length > 0 && (memePrompt.toLowerCase().includes('both') || memePrompt.toLowerCase().includes('together'))) {
-          const randomChar2 = this.characterImageRefs.character2[Math.floor(Math.random() * this.characterImageRefs.character2.length)];
-          imageRequest.image_references.push({
-            image_id: randomChar2,
-            weight: 0.8 // Strong influence on generation
-          });
-        }
+      } else {
+        console.log('💭 No character references - generating text-based meme');
       }
       
-      const response = await axios.post(this.baseURL, {
-        image_request: imageRequest
-      }, {
+      const response = await axios.post(this.baseURL, formData, {
         headers: {
           'Api-Key': this.apiKey,
-          'Content-Type': 'application/json'
+          ...formData.getHeaders()
         },
-        timeout: 60000 // Image generation takes longer
+        timeout: 60000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       });
 
       if (response.data && response.data.data && response.data.data.length > 0) {
         const imageUrl = response.data.data[0].url;
-        console.log('✅ Meme generated successfully');
+        console.log('✅ Meme generated successfully with Ideogram v3');
         return {
           success: true,
           imageUrl: imageUrl,
           prompt: memePrompt
         };
       } else {
-        throw new Error('No image data returned from Ideogram');
+        throw new Error('No image data returned from Ideogram v3');
       }
 
     } catch (error) {
-      console.error('❌ Ideogram API Error:', error.response?.data || error.message);
+      console.error('❌ Ideogram v3 API Error:', error.response?.data || error.message);
       throw new Error(`Failed to generate meme: ${error.message}`);
     }
   }
 
-  // Upload reference images for characters
-  async uploadReferenceImages() {
+  // Get character reference image files for direct upload
+  getCharacterReferenceFiles() {
+    const referenceFiles = [];
+    const baseDir = path.join(process.cwd(), 'meme reference images');
+    
     try {
-      console.log('📷 Uploading character reference images...');
-      
-      const fs = require('fs');
-      const path = require('path');
-      const FormData = require('form-data');
-      
-      // Upload Character 1 images
-      const char1Dir = path.join(process.cwd(), 'meme reference images', '1');
-      const char1Files = fs.readdirSync(char1Dir).filter(f => f.endsWith('.jpg'));
-      
-      for (const file of char1Files) {
-        const filePath = path.join(char1Dir, file);
-        const formData = new FormData();
-        formData.append('image', fs.createReadStream(filePath));
+      // Get Character 1 images
+      const char1Dir = path.join(baseDir, '1');
+      if (fs.existsSync(char1Dir)) {
+        const char1Files = fs.readdirSync(char1Dir)
+          .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/))
+          .slice(0, 1); // Ideogram v3 supports 1 character reference image
         
-        const uploadResponse = await axios.post(this.uploadURL, formData, {
-          headers: {
-            'Api-Key': this.apiKey,
-            ...formData.getHeaders()
-          },
-          timeout: 30000
-        });
-        
-        if (uploadResponse.data && uploadResponse.data.image_id) {
-          this.characterImageRefs.character1.push(uploadResponse.data.image_id);
-          console.log(`✅ Uploaded Character 1 reference: ${file}`);
+        for (const file of char1Files) {
+          referenceFiles.push(path.join(char1Dir, file));
         }
       }
       
-      // Upload Character 2 images
-      const char2Dir = path.join(process.cwd(), 'meme reference images', '2');
-      const char2Files = fs.readdirSync(char2Dir).filter(f => f.endsWith('.jpg'));
-      
-      for (const file of char2Files) {
-        const filePath = path.join(char2Dir, file);
-        const formData = new FormData();
-        formData.append('image', fs.createReadStream(filePath));
-        
-        const uploadResponse = await axios.post(this.uploadURL, formData, {
-          headers: {
-            'Api-Key': this.apiKey,
-            ...formData.getHeaders()
-          },
-          timeout: 30000
-        });
-        
-        if (uploadResponse.data && uploadResponse.data.image_id) {
-          this.characterImageRefs.character2.push(uploadResponse.data.image_id);
-          console.log(`✅ Uploaded Character 2 reference: ${file}`);
-        }
-      }
-      
-      console.log(`🎨 Character references uploaded: ${this.characterImageRefs.character1.length} for Char1, ${this.characterImageRefs.character2.length} for Char2`);
-      return true;
-      
+      console.log(`📷 Found ${referenceFiles.length} character reference files to upload`);
     } catch (error) {
-      console.error('❌ Error uploading reference images:', error.message);
+      console.log('⚠️ No character reference images found, using text-only generation');
+    }
+    
+    return referenceFiles;
+  }
+
+  // Initialize character references (now done during generation)
+  async initializeCharacterReferences() {
+    console.log('📷 Character reference system ready - using direct file uploads with Ideogram v3');
+    const referenceFiles = this.getCharacterReferenceFiles();
+    if (referenceFiles.length > 0) {
+      console.log('✅ Character reference system ACTIVE - memes will use your images!');
+      return true;
+    } else {
+      console.log('💭 No character reference images found - using text-only generation');
       return false;
     }
   }
