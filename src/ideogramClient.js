@@ -41,7 +41,7 @@ class IdeogramClient {
       const styleType = hasCharacterRef ? 'AUTO' : 'GENERAL'; // AUTO is compatible with character references
       formData.append('style_type', styleType);
       
-      formData.append('negative_prompt', 'extra arms, extra legs, multiple arms, multiple legs, third arm, fourth leg, too many limbs, extra limbs, missing limbs, more than two arms, more than two legs, six limbs, eight limbs, spider legs, multiple appendages, boring, corporate, traditional finance, banks, suit and tie, formal business, anti-crypto, regulatory, serious corporate headshot, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
+      formData.append('negative_prompt', 'distorted objects, warped items, melted objects, twisted things, deformed items, morphed objects, floating objects, disconnected parts, broken items, fragmented objects, glitched items, corrupted objects, malformed tools, weird shapes, abstract mess, surreal distortion, extra arms, extra legs, multiple arms, multiple legs, third arm, fourth leg, too many limbs, extra limbs, missing limbs, more than two arms, more than two legs, six limbs, eight limbs, spider legs, multiple appendages, boring, corporate, traditional finance, banks, suit and tie, formal business, anti-crypto, regulatory, serious corporate headshot, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
       
       // Add character reference images if available
       if (characterImages.length > 0) {
@@ -174,8 +174,8 @@ class IdeogramClient {
     const randomCryptoElement = cryptoElements[Math.floor(Math.random() * cryptoElements.length)];
     enhancedPrompt += `, ${randomCryptoElement}`;
     
-    // Add quality and crypto-specific style modifiers with anatomy emphasis
-    enhancedPrompt += ", meme template style, viral social media format, crypto community approved, high quality digital art, bold and expressive, internet culture, memeable character design, sharp focus, correct anatomy with exactly two arms and two legs, proper limb count, four limbs total";
+    // Add quality and crypto-specific style modifiers with anatomy and object emphasis
+    enhancedPrompt += ", meme template style, viral social media format, crypto community approved, high quality digital art, bold and expressive, internet culture, memeable character design, sharp focus, correct anatomy with exactly two arms and two legs, proper limb count, four limbs total, clean objects, well-defined items, properly rendered objects, clear shapes, coherent forms, solid objects";
 
     return enhancedPrompt;
   }
@@ -190,8 +190,8 @@ class IdeogramClient {
 
     // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'FUSAKA crypto mascot character with paws, exactly two arms and two legs, proper anatomy with four limbs total, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, diamond hands energy, memeable and relatable, high quality digital art',
-      'character2': 'FUSAKA crypto mascot character with hooves, exactly two arms and two legs, proper anatomy with four limbs total, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, to the moon attitude, memeable and relatable, high quality digital art',
+      'character1': 'FUSAKA crypto mascot character with paws, exactly two arms and two legs, proper anatomy with four limbs total, clean well-defined objects, properly rendered items, clear shapes and forms, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, diamond hands energy, memeable and relatable, high quality digital art',
+      'character2': 'FUSAKA crypto mascot character with hooves, exactly two arms and two legs, proper anatomy with four limbs total, clean well-defined objects, properly rendered items, clear shapes and forms, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, to the moon attitude, memeable and relatable, high quality digital art',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
