@@ -30,10 +30,10 @@ class IdeogramClient {
       // Add basic parameters
       formData.append('prompt', memePrompt);
       formData.append('aspect_ratio', '1x1'); // Square format for memes
-      formData.append('rendering_speed', 'TURBO'); // Fast generation
-      formData.append('magic_prompt', 'AUTO'); // Let Ideogram enhance
-      formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
-      formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted paws, distorted hooves, extra limbs, missing limbs, deformed limbs, floating limbs, bad anatomy, blurry extremities, mutated appendages, poorly drawn paws, poorly drawn hooves');
+      formData.append('rendering_speed', 'QUALITY'); // Higher quality generation
+      formData.append('magic_prompt', 'OFF'); // Disable magic prompt to keep our specific descriptions
+      formData.append('style_type', 'GENERAL'); // Use general style for better character consistency
+      formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, extra limbs, missing limbs, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
       
       // Add character reference images if available
       const characterImages = this.getCharacterReferenceFiles(characterType);
@@ -149,43 +149,11 @@ class IdeogramClient {
   }
 
   enhancePromptForMemes(originalPrompt) {
-    // Meme style enhancements
-    const memeStyles = [
-      "internet meme style",
-      "funny meme format", 
-      "viral meme aesthetic",
-      "classic meme template",
-      "crypto meme style"
-    ];
-
-    const cryptoMemeElements = [
-      "diamond hands 💎🙌",
-      "rocket ship 🚀", 
-      "moon background 🌙",
-      "chart patterns",
-      "wojak character",
-      "pepe frog",
-      "doge style",
-      "Chad character"
-    ];
-
-    // Check if it's FUSAKA related
-    const isFusakaRelated = /fusaka|ethereum|eth|crypto|blockchain/i.test(originalPrompt);
-    
+    // Simple, clean enhancement focused on quality
     let enhancedPrompt = originalPrompt;
-
-    // Add meme styling
-    const randomStyle = memeStyles[Math.floor(Math.random() * memeStyles.length)];
-    enhancedPrompt += `, ${randomStyle}`;
-
-    // Add crypto elements if relevant
-    if (isFusakaRelated) {
-      const randomCryptoElement = cryptoMemeElements[Math.floor(Math.random() * cryptoMemeElements.length)];
-      enhancedPrompt += `, featuring ${randomCryptoElement}`;
-    }
-
-    // Add visual quality instruction instead of text overlay
-    enhancedPrompt += ", high quality, clear details, vibrant colors, clean composition";
+    
+    // Add quality and style modifiers
+    enhancedPrompt += ", high quality digital art, professional illustration, vibrant colors, clean design, detailed, well-lit, sharp focus, masterpiece quality";
 
     return enhancedPrompt;
   }
@@ -200,8 +168,8 @@ class IdeogramClient {
 
     // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, crypto-themed aesthetic, well-proportioned anatomy, character has paws instead of hands, detailed paws with proper paw pads',
-      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity, well-proportioned anatomy, character has hooves instead of hands, detailed hooves with proper hoof structure',
+      'character1': 'FUSAKA character with paws, high quality digital art, professional illustration style, vibrant colors, clean design, well-proportioned, cute and friendly appearance',
+      'character2': 'FUSAKA character with hooves, high quality digital art, professional illustration style, vibrant colors, clean design, well-proportioned, cute and friendly appearance',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
