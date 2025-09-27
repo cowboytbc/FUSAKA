@@ -32,7 +32,12 @@ class IdeogramClient {
       formData.append('aspect_ratio', '1x1'); // Square format for memes
       formData.append('rendering_speed', 'QUALITY'); // Higher quality generation
       formData.append('magic_prompt', 'OFF'); // Disable magic prompt to keep our specific descriptions
-      formData.append('style_type', 'GENERAL'); // Use general style for better character consistency
+      
+      // Use compatible style type for character references
+      const hasCharacterRef = characterImages.length > 0;
+      const styleType = hasCharacterRef ? 'AUTO' : 'GENERAL'; // AUTO is compatible with character references
+      formData.append('style_type', styleType);
+      
       formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, extra limbs, missing limbs, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
       
       // Add character reference images if available
