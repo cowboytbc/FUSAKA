@@ -33,6 +33,7 @@ class IdeogramClient {
       formData.append('rendering_speed', 'TURBO'); // Fast generation
       formData.append('magic_prompt', 'AUTO'); // Let Ideogram enhance
       formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
+      formData.append('negative_prompt', 'text overlay, words, letters, numbers, distorted hands, extra fingers, missing fingers, deformed hands, blurry hands, mutated hands, poorly drawn hands, bad anatomy, extra limbs, missing limbs, deformed limbs, floating limbs');
       
       // Add character reference images if available
       const characterImages = this.getCharacterReferenceFiles(characterType);
@@ -190,8 +191,8 @@ class IdeogramClient {
       enhancedPrompt += `, featuring ${randomCryptoElement}`;
     }
 
-    // Add text overlay instruction
-    enhancedPrompt += ", with bold meme text overlay, high contrast, viral social media format";
+    // Add visual quality instruction instead of text overlay
+    enhancedPrompt += ", high quality, clear details, vibrant colors, clean composition";
 
     return enhancedPrompt;
   }
@@ -220,18 +221,18 @@ class IdeogramClient {
 
     // Handle both characters together
     if (character.toLowerCase().includes('both') || character.toLowerCase().includes('together')) {
-      let prompt = `Main FUSAKA character and Secondary FUSAKA character together in ${situation}. Both characters interacting harmoniously with complementary designs and coordinated expressions. Dynamic duo composition with balanced visual weight`;
+      let prompt = `Main FUSAKA character and Secondary FUSAKA character together in ${situation}. Both characters interacting harmoniously with complementary designs and coordinated expressions. Dynamic duo composition with balanced visual weight, perfect anatomy, well-drawn hands with correct fingers`;
       if (cryptoContext) {
         prompt += ` related to ${cryptoContext}`;
       }
-      prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy';
+      prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy, high quality artwork';
       return await this.generateMeme(prompt, 'meme', 'both');
     }
 
     // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, and crypto-themed aesthetic',
-      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity',
+      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, crypto-themed aesthetic, well-proportioned anatomy, perfect hands with correct number of fingers',
+      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity, well-proportioned anatomy, perfect hands with correct number of fingers',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
