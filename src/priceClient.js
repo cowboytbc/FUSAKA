@@ -331,6 +331,7 @@ class PriceClient {
   }
 
   formatMarketCap(marketCap) {
+    // Enhanced null safety check - prevents toFixed() errors
     if (!marketCap || marketCap === null || marketCap === undefined || isNaN(marketCap)) {
       return 'N/A';
     }
