@@ -31,7 +31,7 @@ class IdeogramClient {
       
       // Add basic parameters
       formData.append('prompt', memePrompt);
-      formData.append('aspect_ratio', '1:1'); // Square format for memes
+      formData.append('aspect_ratio', '1x1'); // Square format for memes
       formData.append('rendering_speed', 'TURBO'); // Fast generation
       formData.append('magic_prompt', 'AUTO'); // Let Ideogram enhance
       formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
