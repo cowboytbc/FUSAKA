@@ -27,6 +27,9 @@ class IdeogramClient {
       // Create FormData for multipart request
       const formData = new FormData();
       
+      // Get character reference images first
+      const characterImages = this.getCharacterReferenceFiles(characterType);
+      
       // Add basic parameters
       formData.append('prompt', memePrompt);
       formData.append('aspect_ratio', '1x1'); // Square format for memes
@@ -41,7 +44,6 @@ class IdeogramClient {
       formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, extra limbs, missing limbs, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
       
       // Add character reference images if available
-      const characterImages = this.getCharacterReferenceFiles(characterType);
       if (characterImages.length > 0) {
         for (const imagePath of characterImages) {
           if (fs.existsSync(imagePath)) {
