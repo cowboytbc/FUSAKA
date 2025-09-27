@@ -34,7 +34,7 @@ class IdeogramClient {
       const imageRequest = {
         prompt: memePrompt,
         aspect_ratio: "ASPECT_1_1", // Square format perfect for memes
-        model: "V_1", // Cost-optimized model
+        model: "V_2", // V_2 supports style_type parameter
         magic_prompt_option: "AUTO", // Let Ideogram enhance the prompt
         style_type: style === 'professional' ? 'DESIGN' : 'AUTO'
       };
