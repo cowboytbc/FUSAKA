@@ -504,7 +504,7 @@ CONVERSATION STYLE:
 
 Remember: Today is ${new Date().toLocaleDateString('en-US')} - keep all temporal references accurate!
 
-IMPORTANT: Keep responses SHORT and conversational (ideally 500-800 characters, max 1200). Focus on the key points. If more detail is needed, encourage follow-up questions. Think Twitter-style responses, not essays.`;
+IMPORTANT: Keep responses SHORT and conversational (ideally 800-1200 characters, max 2000). Focus on key points with complete sentences. Use only standard ASCII characters to prevent encoding issues. Always end properly - never cut off mid-word or mid-sentence. Think informative but concise responses.`;
 
       const response = await axios.post(`${this.baseURL}/chat/completions`, {
         messages: [

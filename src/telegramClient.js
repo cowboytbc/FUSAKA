@@ -53,33 +53,47 @@ class TelegramClient {
 
   // Helper method to split long messages
   async sendLongMessage(chatId, message, options = {}) {
-    const MAX_LENGTH = 1500; // Keep responses conversational and digestible
+    const MAX_LENGTH = 4000; // Telegram's limit is 4096, use 4000 for safety
     
-    if (message.length <= MAX_LENGTH) {
-      return await this.bot.sendMessage(chatId, message, options);
+    // Clean message of any potential encoding issues
+    const cleanMessage = message.replace(/[\u{80}-\u{10FFFF}]/gu, '').trim();
+    
+    if (cleanMessage.length <= MAX_LENGTH) {
+      return await this.bot.sendMessage(chatId, cleanMessage, options);
     }
     
     // Split message into chunks at natural break points
     const chunks = [];
     let currentChunk = '';
-    const lines = message.split('\n');
+    const sentences = cleanMessage.split(/(?<=[.!?])\s+/);
     
-    for (const line of lines) {
-      if (currentChunk.length + line.length + 1 <= MAX_LENGTH) {
-        currentChunk += (currentChunk ? '\n' : '') + line;
+    for (const sentence of sentences) {
+      if (currentChunk.length + sentence.length + 1 <= MAX_LENGTH) {
+        currentChunk += (currentChunk ? ' ' : '') + sentence;
       } else {
-        if (currentChunk) chunks.push(currentChunk);
-        currentChunk = line;
+        if (currentChunk) chunks.push(currentChunk.trim());
         
-        // If single line is too long, force split
-        if (line.length > MAX_LENGTH) {
-          chunks.push(line.substring(0, MAX_LENGTH - 10) + '...');
-          currentChunk = '...' + line.substring(MAX_LENGTH - 10);
+        // If single sentence is too long, split at word boundaries
+        if (sentence.length > MAX_LENGTH) {
+          const words = sentence.split(' ');
+          let tempChunk = '';
+          
+          for (const word of words) {
+            if (tempChunk.length + word.length + 1 <= MAX_LENGTH) {
+              tempChunk += (tempChunk ? ' ' : '') + word;
+            } else {
+              if (tempChunk) chunks.push(tempChunk.trim());
+              tempChunk = word;
+            }
+          }
+          currentChunk = tempChunk;
+        } else {
+          currentChunk = sentence;
         }
       }
     }
     
-    if (currentChunk) chunks.push(currentChunk);
+    if (currentChunk) chunks.push(currentChunk.trim());
     
     // Send chunks with small delay between them
     for (let i = 0; i < chunks.length; i++) {
