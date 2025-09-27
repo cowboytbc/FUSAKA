@@ -41,7 +41,7 @@ class IdeogramClient {
       const styleType = hasCharacterRef ? 'AUTO' : 'GENERAL'; // AUTO is compatible with character references
       formData.append('style_type', styleType);
       
-      formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, extra limbs, missing limbs, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
+      formData.append('negative_prompt', 'boring, corporate, traditional finance, banks, suit and tie, formal business, anti-crypto, regulatory, serious corporate headshot, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, extra limbs, missing limbs, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
       
       // Add character reference images if available
       if (characterImages.length > 0) {
@@ -156,11 +156,26 @@ class IdeogramClient {
   }
 
   enhancePromptForMemes(originalPrompt) {
-    // Simple, clean enhancement focused on quality
+    // Add crypto meme culture elements
     let enhancedPrompt = originalPrompt;
     
-    // Add quality and style modifiers
-    enhancedPrompt += ", high quality digital art, professional illustration, vibrant colors, clean design, detailed, well-lit, sharp focus, masterpiece quality";
+    // Crypto meme culture elements
+    const cryptoElements = [
+      "crypto meme style",
+      "internet meme aesthetic", 
+      "wojak energy",
+      "pepe vibes",
+      "diamond hands attitude",
+      "to the moon energy",
+      "degen culture",
+      "crypto Twitter aesthetic"
+    ];
+    
+    const randomCryptoElement = cryptoElements[Math.floor(Math.random() * cryptoElements.length)];
+    enhancedPrompt += `, ${randomCryptoElement}`;
+    
+    // Add quality and crypto-specific style modifiers
+    enhancedPrompt += ", meme template style, viral social media format, crypto community approved, high quality digital art, bold and expressive, internet culture, memeable character design, sharp focus";
 
     return enhancedPrompt;
   }
@@ -175,8 +190,8 @@ class IdeogramClient {
 
     // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'FUSAKA character with paws, high quality digital art, professional illustration style, vibrant colors, clean design, well-proportioned, cute and friendly appearance',
-      'character2': 'FUSAKA character with hooves, high quality digital art, professional illustration style, vibrant colors, clean design, well-proportioned, cute and friendly appearance',
+      'character1': 'FUSAKA crypto mascot character with paws, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, diamond hands energy, memeable and relatable, high quality digital art',
+      'character2': 'FUSAKA crypto mascot character with hooves, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, to the moon attitude, memeable and relatable, high quality digital art',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
