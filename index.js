@@ -9,6 +9,7 @@ console.log('Environment check:');
 console.log('- NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('- TELEGRAM_BOT_TOKEN exists:', !!process.env.TELEGRAM_BOT_TOKEN);
 console.log('- GROK_API_KEY exists:', !!process.env.GROK_API_KEY);
+console.log('- IDEOGRAM_API_KEY exists:', !!process.env.IDEOGRAM_API_KEY);
 console.log('- BOT_USERNAME:', process.env.BOT_USERNAME);
 
 // Handle uncaught exceptions

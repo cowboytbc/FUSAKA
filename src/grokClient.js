@@ -502,13 +502,15 @@ CONVERSATION STYLE:
 - For organic responses: be casual, fun, and show personality
 - If asked about something outside your expertise, admit it and suggest who might know better
 
-Remember: Today is ${new Date().toLocaleDateString('en-US')} - keep all temporal references accurate!`;
+Remember: Today is ${new Date().toLocaleDateString('en-US')} - keep all temporal references accurate!
+
+IMPORTANT: Keep responses SHORT and conversational (ideally 500-800 characters, max 1200). Focus on the key points. If more detail is needed, encourage follow-up questions. Think Twitter-style responses, not essays.`;
 
       const response = await axios.post(`${this.baseURL}/chat/completions`, {
         messages: [
           {
             role: "system",
-            content: systemPrompt
+            content: systemPrompt + "\n\nCRITICAL: Keep responses under 1000 characters. Be conversational and concise. Think chat message, not article."
           },
           {
             role: "user", 

@@ -1,6 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const GrokClient = require('./grokClient');
 const PriceClient = require('./priceClient');
+const IdeogramClient = require('./ideogramClient');
 require('dotenv').config();
 
 class TelegramClient {
@@ -26,6 +27,7 @@ class TelegramClient {
     
     this.grokClient = new GrokClient();
     this.priceClient = new PriceClient();
+    this.ideogramClient = new IdeogramClient();
     
     // Track organic responses to prevent spam
     this.recentResponses = new Map(); // chatId -> timestamp of last organic response
@@ -46,6 +48,48 @@ class TelegramClient {
     console.log('🤖 FUSAKA Telegram Bot initialized in polling mode');
   }
 
+  // Helper method to split long messages
+  async sendLongMessage(chatId, message, options = {}) {
+    const MAX_LENGTH = 1500; // Keep responses conversational and digestible
+    
+    if (message.length <= MAX_LENGTH) {
+      return await this.bot.sendMessage(chatId, message, options);
+    }
+    
+    // Split message into chunks at natural break points
+    const chunks = [];
+    let currentChunk = '';
+    const lines = message.split('\n');
+    
+    for (const line of lines) {
+      if (currentChunk.length + line.length + 1 <= MAX_LENGTH) {
+        currentChunk += (currentChunk ? '\n' : '') + line;
+      } else {
+        if (currentChunk) chunks.push(currentChunk);
+        currentChunk = line;
+        
+        // If single line is too long, force split
+        if (line.length > MAX_LENGTH) {
+          chunks.push(line.substring(0, MAX_LENGTH - 10) + '...');
+          currentChunk = '...' + line.substring(MAX_LENGTH - 10);
+        }
+      }
+    }
+    
+    if (currentChunk) chunks.push(currentChunk);
+    
+    // Send chunks with small delay between them
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkOptions = i === 0 ? options : {}; // Only apply options to first message
+      await this.bot.sendMessage(chatId, chunks[i], chunkOptions);
+      
+      // Small delay between chunks to avoid rate limiting
+      if (i < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  }
+
   setupBot() {
     // Set bot commands for the suggestion bar
     this.bot.setMyCommands([
@@ -54,11 +98,7 @@ class TelegramClient {
       { command: 'price', description: 'Get real-time price data for any cryptocurrency' },
       { command: 'eth', description: 'Get Ethereum price with Fusaka upgrade insights' },
       { command: 'trending', description: 'See top trending cryptocurrencies' },
-      { command: 'explain', description: 'Get detailed explanations of blockchain concepts' },
-      { command: 'gas', description: 'Check current Ethereum gas prices and optimization tips' },
-      { command: 'defi', description: 'Get DeFi protocol information and yield opportunities' },
-      { command: 'security', description: 'Learn about smart contract security best practices' },
-      { command: 'help', description: 'Get help with using FUSAKAAI commands' }
+      { command: 'meme', description: '🎨 Generate crypto memes with AI (e.g., /meme vitalik happy)' }
     ]).catch(console.error);
 
     // Handle /ask command
@@ -77,8 +117,8 @@ class TelegramClient {
         // Generate response using Grok with Vitalik personality
         const response = await this.grokClient.generateResponse(question, 'telegram');
         
-        // Send the response
-        await this.bot.sendMessage(chatId, response, {
+        // Send the response (with chunking for long messages)
+        await this.sendLongMessage(chatId, response, {
           parse_mode: 'Markdown',
           reply_to_message_id: msg.message_id
         });
@@ -294,167 +334,115 @@ I represent the FUSAKA token community and I'm deeply trained in ALL things Ethe
 💰 \`/price [symbol]\` - Get real-time crypto prices for any token
 ⚡ \`/eth\` - Quick Ethereum price check with upgrade insights
 🔥 \`/trending\` - See what's trending in crypto
-📚 \`/explain [concept]\` - Deep technical explanations
-⛽ \`/gas\` - Gas prices and optimization tips
-🏦 \`/defi [protocol]\` - DeFi analysis and yields
-🛡️ \`/security [topic]\` - Smart contract security
-❓ \`/help\` - Full command guide
+🎨 \`/meme [character] [situation]\` - Generate viral crypto memes!
 
 **Examples:**
 • \`/ask How does the EVM execute smart contracts?\`
-• \`/explain zero-knowledge proofs\`
-• \`/defi uniswap\` - Analyze Uniswap protocol
-• \`/security reentrancy\` - Learn about reentrancy attacks
-• \`/gas\` - Check current gas situation
-• \`/ask What's the math behind zk-rollups?\`
+• \`/ask Explain zero-knowledge proofs in detail\`
+• \`/ask What are the best DeFi protocols right now?\`
+• \`/meme vitalik celebrating\` - Generate Vitalik meme
+• \`/meme wojak diamond hands\` - Create diamond hands meme
+• \`/fusaka\` to check our token and contract details!
 
 Join our community celebrating both cutting-edge tech AND the memecoin revolution! 🚀🎭`;
 
       await this.bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown' });
     });
 
-    // Handle /explain command - Deep blockchain concept explanations
-    this.bot.onText(/\/explain (.+)/, async (msg, match) => {
+    // Handle /meme command - AI meme generation
+    this.bot.onText(/\/meme(?:\s+(.+))?/, async (msg, match) => {
       const chatId = msg.chat.id;
-      const concept = match[1];
+      const memeInput = match?.[1]?.trim();
+      const username = msg.from.username || msg.from.first_name || 'fren';
       
       try {
-        console.log(`📚 /explain request for: ${concept}`);
-        const explanation = await this.grokClient.callGrok(
-          `Explain "${concept}" in blockchain/Ethereum context with technical depth, examples, and practical applications. Be comprehensive but accessible.`
-        );
+        if (!memeInput) {
+          await this.bot.sendMessage(chatId, 
+            "🎨 **Meme Generator Help**\n\n" +
+            "**Usage:** `/meme [character] [situation]`\n\n" +
+            "**Popular characters:**\n" +
+            "• `vitalik` - Ethereum founder\n" +
+            "• `wojak` - Emotional trader\n" +
+            "• `pepe` - Classic meme frog\n" +
+            "• `chad` - Confident holder\n" +
+            "• `doge` - Much wow, very crypto\n\n" +
+            "**Examples:**\n" +
+            "• `/meme vitalik celebrating FUSAKA`\n" +
+            "• `/meme wojak diamond hands`\n" +
+            "• `/meme pepe rocket to moon`\n" +
+            "• `/meme chad hodling through dip`",
+            { 
+              reply_to_message_id: msg.message_id,
+              parse_mode: 'Markdown'
+            }
+          );
+          return;
+        }
+
+        console.log(`🎨 /meme request from ${username}: "${memeInput}"`);
         
-        await this.bot.sendMessage(chatId, explanation, { 
-          reply_to_message_id: msg.message_id,
-          parse_mode: 'Markdown'
-        });
-      } catch (error) {
-        console.error('❌ Error handling /explain command:', error);
-        await this.bot.sendMessage(chatId, 
-          "Sorry, I had trouble explaining that concept. Try rephrasing or ask about Ethereum, DeFi, smart contracts, or consensus mechanisms! 📚",
+        // Send "generating" message
+        const generatingMsg = await this.bot.sendMessage(chatId, 
+          "🎨 Generating your meme... This might take 30-60 seconds! ⏳",
           { reply_to_message_id: msg.message_id }
         );
-      }
-    });
 
-    // Handle /gas command - Ethereum gas prices and optimization
-    this.bot.onText(/\/gas/, async (msg) => {
-      const chatId = msg.chat.id;
-      
-      try {
-        console.log('⛽ /gas request');
-        const gasInfo = await this.grokClient.callGrok(
-          `Provide current Ethereum gas situation, optimization tips, and when to transact. Include Layer 2 alternatives and practical advice.`
+        // Parse character and situation
+        const words = memeInput.split(' ');
+        const character = words[0] || 'wojak';
+        const situation = words.slice(1).join(' ') || 'crypto trading';
+
+        // Generate meme
+        const result = await this.ideogramClient.generateCharacterMeme(
+          character, 
+          situation, 
+          'FUSAKA and Ethereum'
         );
-        
-        await this.bot.sendMessage(chatId, gasInfo, { 
-          reply_to_message_id: msg.message_id,
-          parse_mode: 'Markdown'
-        });
+
+        if (result.success) {
+          // Delete generating message
+          await this.bot.deleteMessage(chatId, generatingMsg.message_id);
+          
+          // Send the meme
+          await this.bot.sendPhoto(chatId, result.imageUrl, {
+            caption: `🎭 **${character.toUpperCase()} MEME**\n\n` +
+                    `Situation: *${situation}*\n` +
+                    `Generated by FUSAKAAI 🤖\n\n` +
+                    `Prompt: \`${result.prompt}\``,
+            parse_mode: 'Markdown',
+            reply_to_message_id: msg.message_id
+          });
+          
+          console.log(`✅ Meme sent to ${username}`);
+        } else {
+          throw new Error('Meme generation failed');
+        }
+
       } catch (error) {
-        console.error('❌ Error handling /gas command:', error);
-        await this.bot.sendMessage(chatId, 
-          "Sorry, can't fetch gas data right now! Use Layer 2s like Arbitrum, Optimism, or Polygon for cheaper transactions! ⛽",
-          { reply_to_message_id: msg.message_id }
-        );
-      }
-    });
-
-    // Handle /defi command - DeFi protocols and opportunities
-    this.bot.onText(/\/defi(?:\s+(.+))?/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const protocol = match?.[1] || '';
-      
-      try {
-        console.log(`🏦 /defi request${protocol ? ' for: ' + protocol : ''}`);
-        const defiInfo = await this.grokClient.callGrok(
-          protocol 
-            ? `Analyze the DeFi protocol "${protocol}" - how it works, risks, yields, tokenomics, and recent developments.`
-            : `Overview of current DeFi landscape: top protocols, yield opportunities, risks, and trends. Focus on Ethereum ecosystem.`
-        );
+        console.error('❌ Error handling /meme command:', error);
         
-        await this.bot.sendMessage(chatId, defiInfo, { 
-          reply_to_message_id: msg.message_id,
-          parse_mode: 'Markdown'
-        });
-      } catch (error) {
-        console.error('❌ Error handling /defi command:', error);
-        await this.bot.sendMessage(chatId, 
-          "Sorry, can't fetch DeFi data right now! Try asking about specific protocols like Uniswap, Aave, or Compound! 🏦",
-          { reply_to_message_id: msg.message_id }
-        );
-      }
-    });
-
-    // Handle /security command - Smart contract security
-    this.bot.onText(/\/security(?:\s+(.+))?/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const topic = match?.[1] || '';
-      
-      try {
-        console.log(`🛡️ /security request${topic ? ' for: ' + topic : ''}`);
-        const securityInfo = await this.grokClient.callGrok(
-          topic 
-            ? `Explain smart contract security topic: "${topic}" - vulnerabilities, mitigation strategies, and best practices.`
-            : `Smart contract security overview: common vulnerabilities, audit practices, development best practices, and security tools.`
-        );
+        // Try to delete generating message if it exists
+        try {
+          if (generatingMsg) {
+            await this.bot.deleteMessage(chatId, generatingMsg.message_id);
+          }
+        } catch (deleteError) {
+          // Ignore delete errors
+        }
         
-        await this.bot.sendMessage(chatId, securityInfo, { 
-          reply_to_message_id: msg.message_id,
-          parse_mode: 'Markdown'
-        });
-      } catch (error) {
-        console.error('❌ Error handling /security command:', error);
         await this.bot.sendMessage(chatId, 
-          "Sorry, can't fetch security info right now! Always audit your contracts and follow best practices! 🛡️",
-          { reply_to_message_id: msg.message_id }
+          "Sorry, I couldn't generate that meme right now! 😅\n\n" +
+          "This could be because:\n" +
+          "• The image generator is overloaded\n" +
+          "• The prompt needs to be adjusted\n" +
+          "• API limits reached\n\n" +
+          "Try again in a few minutes or try a different character/situation! 🎨",
+          { 
+            reply_to_message_id: msg.message_id,
+            parse_mode: 'Markdown'
+          }
         );
       }
-    });
-
-    // Handle /help command - Comprehensive help
-    this.bot.onText(/\/help/, async (msg) => {
-      const chatId = msg.chat.id;
-      
-      const helpMessage = `🤖 **FUSAKAAI Command Guide**
-
-**Core Commands:**
-• \`/ask [question]\` - Ask anything about Ethereum, crypto, DeFi, governance
-• \`/fusaka\` - FUSAKA token info and contract details
-• \`/price [symbol]\` - Real-time crypto prices
-• \`/eth\` - Ethereum price with upgrade insights
-
-**Advanced Features:**
-• \`/explain [concept]\` - Deep technical explanations
-• \`/gas\` - Current gas prices and optimization tips
-• \`/defi [protocol]\` - DeFi protocol analysis and yields
-• \`/security [topic]\` - Smart contract security guidance
-• \`/trending\` - Top trending cryptocurrencies
-
-**Example Questions:**
-• "How does MEV work and how can I protect against it?"
-• "Explain zero-knowledge proofs in simple terms"
-• "What are the trade-offs between different Layer 2 solutions?"
-• "How would you build a yield farming strategy?"
-• "What security considerations are important for DeFi protocols?"
-
-**I'm trained on:**
-🔹 EVM internals & assembly language
-🔹 Consensus mechanisms & validator economics  
-🔹 Layer 2 scaling & ZK-rollup mathematics
-🔹 DeFi protocols & yield strategies
-🔹 Smart contract security & auditing
-🔹 MEV, gas optimization, and performance
-🔹 Cross-chain bridges & interoperability
-🔹 Governance mechanisms & DAO structures
-🔹 Current ecosystem developments
-
-Ready to dive deep into any blockchain topic! 🚀`;
-
-      await this.bot.sendMessage(chatId, helpMessage, { 
-        reply_to_message_id: msg.message_id,
-        parse_mode: 'Markdown'
-      });
     });
 
     // Organic conversation - respond to FUSAKA/ETH mentions (2 out of 5 times)
@@ -518,7 +506,7 @@ Current context: Today is ${new Date().toLocaleDateString('en-US')}`;
               const delay = Math.random() * 2000 + 1000;
               await new Promise(resolve => setTimeout(resolve, delay));
               
-              await this.bot.sendMessage(chatId, response, { 
+              await this.sendLongMessage(chatId, response, { 
                 reply_to_message_id: msg.message_id 
               });
               
