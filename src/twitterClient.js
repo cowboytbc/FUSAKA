@@ -28,8 +28,12 @@ class TwitterClient {
       replyToMentions: process.env.TWITTER_REPLY_TO_MENTIONS === 'true',
       autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
-      marketUpdates: process.env.TWITTER_MARKET_UPDATES === 'true'
+      marketUpdates: process.env.TWITTER_MARKET_UPDATES === 'true',
+      replyToVitalik: process.env.TWITTER_REPLY_TO_VITALIK === 'true'
     };
+
+    // Vitalik's Twitter user ID 
+    this.vitalikUserId = '295218901'; // @VitalikButerin
 
     console.log('🐦 Twitter client initialized');
     console.log('📊 Config:', this.config);
@@ -52,6 +56,7 @@ class TwitterClient {
       // Start automated features
       this.startAutomatedTweets();
       this.startMentionMonitoring();
+      this.startVitalikMonitoring();
 
       console.log('🐦 Twitter bot started successfully!');
       return true;
@@ -103,6 +108,65 @@ class TwitterClient {
     }, 2 * 60 * 1000);
 
     console.log('👂 Mention monitoring started');
+  }
+
+  // Monitor Vitalik's posts and respond
+  startVitalikMonitoring() {
+    if (!this.config.replyToVitalik) return;
+
+    // Check Vitalik's posts every 5 minutes
+    setInterval(async () => {
+      try {
+        await this.checkVitalikPosts();
+      } catch (error) {
+        console.error('❌ Error checking Vitalik posts:', error);
+      }
+    }, 5 * 60 * 1000);
+
+    console.log('👨‍💻 Vitalik monitoring started');
+  }
+
+  async checkVitalikPosts() {
+    try {
+      // Get Vitalik's recent tweets (last 10 minutes)
+      const vitalikTweets = await this.readWriteClient.v2.userTimeline(this.vitalikUserId, {
+        max_results: 5,
+        'tweet.fields': ['created_at', 'text', 'public_metrics'],
+        exclude: ['retweets', 'replies']
+      });
+
+      if (!vitalikTweets.data) return;
+
+      for (const tweet of vitalikTweets.data) {
+        // Skip if older than 10 minutes
+        const tweetTime = new Date(tweet.created_at);
+        const now = new Date();
+        const diffMinutes = (now - tweetTime) / (1000 * 60);
+        
+        if (diffMinutes > 10) continue;
+
+        // Skip if we already replied (check if tweet is too old or has many replies already)
+        if (tweet.public_metrics?.reply_count > 50) continue;
+
+        // Generate contextual AI response
+        const prompt = `Vitalik Buterin just tweeted: "${tweet.text}"\n\nAs FUSAKAAI, respond with enthusiasm and crypto knowledge. Be supportive of Ethereum ecosystem. Add relevant insights or questions. Use emojis. Keep under 240 characters. Don't be overly promotional.`;
+        
+        const response = await this.grokClient.generateResponse(prompt);
+        
+        // Add FUSAKA signature
+        const finalResponse = `${response}\n\n🔥 #FUSAKA #Ethereum`;
+        
+        if (finalResponse.length <= 280) {
+          await this.readWriteClient.v2.reply(finalResponse, tweet.id);
+          console.log(`✅ Replied to Vitalik's tweet: "${tweet.text.substring(0, 50)}..."`);
+          
+          // Rate limit: wait between replies to avoid spam
+          await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second delay
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error monitoring Vitalik posts:', error);
+    }
   }
 
   async postAutomaticMeme() {
