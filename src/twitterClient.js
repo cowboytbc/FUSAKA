@@ -77,14 +77,14 @@ class TwitterClient {
         const rand = Math.random();
         
         if (rand < 0.4 && this.config.autoMemeTweets) {
-          // 40% chance: Post meme
+          // 40% chance: Post meme (if enabled)
           await this.postAutomaticMeme();
         } else if (rand < 0.7 && this.config.priceUpdates) {
-          // 30% chance: Price update
-          await this.postPriceUpdate();
+          // 30% chance: Engaging price update with context
+          await this.postEngagingPriceUpdate();
         } else if (this.config.marketUpdates) {
-          // 30% chance: Market insight
-          await this.postMarketInsight();
+          // 30% chance: Relevant market insight with discussion starter
+          await this.postRelevantInsight();
         }
       } catch (error) {
         console.error('❌ Error in automated tweet:', error);
@@ -124,6 +124,38 @@ class TwitterClient {
     }, 5 * 60 * 1000);
 
     console.log('👨‍💻 Vitalik monitoring started');
+  }
+
+  // Generate trending/relevant content
+  async postTrendingContent() {
+    try {
+      const currentEvents = [
+        'Bitcoin ETF news and Ethereum ETF implications',
+        'Major DeFi protocol updates or governance votes',
+        'Layer 2 network milestones and adoption metrics',
+        'Ethereum network upgrades and EIP proposals',
+        'Institutional crypto adoption announcements',
+        'Regulatory developments affecting DeFi',
+        'Cross-chain bridge innovations and security',
+        'NFT marketplace evolution and utility growth',
+        'Staking rewards optimization strategies',
+        'Ethereum developer conference highlights'
+      ];
+
+      const randomEvent = currentEvents[Math.floor(Math.random() * currentEvents.length)];
+      
+      const prompt = `Create a viral crypto Twitter post about: ${randomEvent}. Make it relevant to today's market. Include hot takes, predictions, or pose thought-provoking questions. Be engaging and spark discussion. Use current crypto slang. Max 240 chars before hashtags.`;
+      
+      const trendingPost = await this.grokClient.generateResponse(prompt);
+      const finalTweet = `${trendingPost}\n\n🔥 Thoughts below 👇\n\n#Ethereum #FUSAKA #Crypto #DeFi`;
+      
+      if (finalTweet.length <= 280) {
+        await this.readWriteClient.v2.tweet({ text: finalTweet });
+        console.log('✅ Posted trending content to Twitter');
+      }
+    } catch (error) {
+      console.error('❌ Error posting trending content:', error);
+    }
   }
 
   async checkVitalikPosts() {
@@ -213,38 +245,77 @@ class TwitterClient {
     }
   }
 
-  async postPriceUpdate() {
+  async postEngagingPriceUpdate() {
     try {
       const ethPrice = await this.priceClient.getPrice('ethereum');
       
       if (ethPrice.success) {
-        const priceText = `🚀 $ETH Price Update\n\n💰 $${ethPrice.price}\n📈 ${ethPrice.change24h}% (24h)\n📊 Market Cap: $${ethPrice.marketCap}\n\n#Ethereum #ETH #Crypto #FUSAKA`;
+        // Generate contextual, engaging content based on price movement
+        const change = parseFloat(ethPrice.change24h);
+        let context = '';
         
-        await this.readWriteClient.v2.tweet({ text: priceText });
-        console.log('✅ Posted price update to Twitter');
-      }
-    } catch (error) {
-      console.error('❌ Error posting price update:', error);
-    }
-  }
+        if (change > 5) {
+          context = 'massive pump energy! 🚀 Bulls are back in control. ';
+        } else if (change > 2) {
+          context = 'solid green momentum! 📈 Market looking healthy. ';
+        } else if (change > 0) {
+          context = 'steady upward grind! 💪 Patience paying off. ';
+        } else if (change > -2) {
+          context = 'minor consolidation. 🎯 Perfect accumulation zone. ';
+        } else if (change > -5) {
+          context = 'healthy correction. 💎 Diamond hands opportunity. ';
+        } else {
+          context = 'major dip! 🔥 Generational buying opportunity. ';
+        }
 
-  async postMarketInsight() {
-    try {
-      const ethPrice = await this.priceClient.getPrice('ethereum');
-      
-      if (ethPrice.success) {
-        const prompt = `Generate a short, insightful tweet about Ethereum at $${ethPrice.price} with ${ethPrice.change24h}% 24h change. Be bullish but analytical. Include crypto Twitter vibes. Max 240 characters.`;
+        const prompt = `Create an engaging crypto Twitter post about ETH at $${ethPrice.price} with ${ethPrice.change24h}% change. Include ${context} Add relevant market context, what this means for DeFi/L2s, or upcoming catalysts. Be bullish but analytical. Include emojis. Max 240 chars before hashtags.`;
         
-        const insight = await this.grokClient.generateResponse(prompt);
-        const tweetText = `${insight}\n\n#Ethereum #FUSAKA #Crypto`;
+        const engagingContent = await this.grokClient.generateResponse(prompt);
+        const finalTweet = `${engagingContent}\n\n💰 $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #FUSAKA #Crypto`;
         
-        if (tweetText.length <= 280) {
-          await this.readWriteClient.v2.tweet({ text: tweetText });
-          console.log('✅ Posted market insight to Twitter');
+        if (finalTweet.length <= 280) {
+          await this.readWriteClient.v2.tweet({ text: finalTweet });
+          console.log('✅ Posted engaging price update to Twitter');
         }
       }
     } catch (error) {
-      console.error('❌ Error posting market insight:', error);
+      console.error('❌ Error posting engaging price update:', error);
+    }
+  }
+
+  async postRelevantInsight() {
+    try {
+      const ethPrice = await this.priceClient.getPrice('ethereum');
+      
+      if (ethPrice.success) {
+        // Generate contextually relevant topics
+        const topics = [
+          'Layer 2 scaling solutions and their impact on Ethereum adoption',
+          'DeFi innovation trends and total value locked growth',
+          'Ethereum merge effects on energy consumption and staking',
+          'Institutional adoption and ETF developments',
+          'Cross-chain interoperability and Ethereum dominance',
+          'NFT utility evolution and real-world applications',
+          'EIP updates and network upgrade implications',
+          'Ethereum development activity and GitHub commits',
+          'Gas fee optimization and user experience improvements',
+          'Decentralized governance trends in Ethereum ecosystem'
+        ];
+        
+        const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+        
+        const prompt = `Create an engaging crypto Twitter thread starter about: ${randomTopic}. Reference current ETH price of $${ethPrice.price}. Include hot takes, predictions, or questions that spark discussion. Be thought-provoking and add value. Use crypto Twitter language. Max 240 chars before hashtags.`;
+        
+        const insight = await this.grokClient.generateResponse(prompt);
+        const tweetText = `${insight}\n\n💭 What's your take? 👇\n\n#Ethereum #FUSAKA #Crypto #DeFi`;
+        
+        if (tweetText.length <= 280) {
+          await this.readWriteClient.v2.tweet({ text: tweetText });
+          console.log('✅ Posted relevant insight to Twitter');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error posting relevant insight:', error);
     }
   }
 
