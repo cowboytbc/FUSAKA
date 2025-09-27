@@ -33,7 +33,7 @@ class IdeogramClient {
       formData.append('rendering_speed', 'TURBO'); // Fast generation
       formData.append('magic_prompt', 'AUTO'); // Let Ideogram enhance
       formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
-      formData.append('negative_prompt', 'text overlay, words, letters, numbers, distorted hands, extra fingers, missing fingers, deformed hands, blurry hands, mutated hands, poorly drawn hands, bad anatomy, extra limbs, missing limbs, deformed limbs, floating limbs');
+      formData.append('negative_prompt', 'text overlay, words, letters, numbers, human hands, fingers, distorted paws, distorted hooves, extra limbs, missing limbs, deformed limbs, floating limbs, bad anatomy, blurry extremities, mutated appendages, poorly drawn paws, poorly drawn hooves');
       
       // Add character reference images if available
       const characterImages = this.getCharacterReferenceFiles(characterType);
@@ -80,21 +80,7 @@ class IdeogramClient {
     const baseDir = path.join(process.cwd(), 'meme reference images');
     
     try {
-      if (characterType === 'both') {
-        // For "both characters", first try folder 3 with both characters together
-        const bothDir = path.join(baseDir, '3');
-        if (fs.existsSync(bothDir)) {
-          const bothFiles = fs.readdirSync(bothDir)
-            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
-          if (bothFiles.length > 0) {
-            const randomBoth = bothFiles[Math.floor(Math.random() * bothFiles.length)];
-            referenceFiles.push(path.join(bothDir, randomBoth));
-            return referenceFiles;
-          }
-        }
-        // Fallback: no reference images if folder 3 doesn't exist or is empty
-        return [];
-      } else if (characterType === 'auto') {
+      if (characterType === 'auto') {
         // For auto, randomly pick from Character 1 directory as default
         const char1Dir = path.join(baseDir, '1');
         if (fs.existsSync(char1Dir)) {
@@ -206,40 +192,16 @@ class IdeogramClient {
 
   // Generate character-based memes with weighted selection
   async generateCharacterMeme(character, situation, cryptoContext = '') {
-    // Character selection probabilities
-    const selectionWeights = {
-      'both_characters': 0.50,    // 50% chance for both characters together
-      'character1_solo': 0.325,   // 32.5% chance for Character 1 solo (65% of remaining 50%)
-      'character2_solo': 0.175,   // 17.5% chance for Character 2 solo (35% of remaining 50%)
-    };
-
-    // If user just says "random" or doesn't specify, use weighted selection including duo option
+    // If user just says "random" or doesn't specify, use 50/50 selection between characters
     if (character.toLowerCase() === 'random' || character.toLowerCase() === 'any') {
       const rand = Math.random();
-      
-      if (rand < selectionWeights.both_characters) {
-        character = 'both';
-      } else if (rand < selectionWeights.both_characters + selectionWeights.character1_solo) {
-        character = 'character1';
-      } else {
-        character = 'character2';
-      }
-    }
-
-    // Handle both characters together
-    if (character.toLowerCase().includes('both') || character.toLowerCase().includes('together')) {
-      let prompt = `Two distinct FUSAKA characters together in ${situation}. First character: vibrant blue and purple themed crypto mascot with energetic expression and modern design. Second character: complementary orange and gold themed crypto mascot with different facial features and unique personality. Both characters are clearly different from each other, interacting harmoniously with contrasting but complementary designs. Dynamic duo composition with balanced visual weight, perfect anatomy, well-drawn hands with correct fingers`;
-      if (cryptoContext) {
-        prompt += ` related to ${cryptoContext}`;
-      }
-      prompt += ', crypto meme style, funny internet meme format, two distinctly different characters with great chemistry and visual synergy, high quality artwork, clear character differentiation';
-      return await this.generateMeme(prompt, 'meme', 'both');
+      character = rand < 0.5 ? 'character1' : 'character2';
     }
 
     // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, crypto-themed aesthetic, well-proportioned anatomy, perfect hands with correct number of fingers',
-      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity, well-proportioned anatomy, perfect hands with correct number of fingers',
+      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, crypto-themed aesthetic, well-proportioned anatomy, character has paws instead of hands, detailed paws with proper paw pads',
+      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity, well-proportioned anatomy, character has hooves instead of hands, detailed hooves with proper hoof structure',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
