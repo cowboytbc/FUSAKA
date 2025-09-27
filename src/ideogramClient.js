@@ -15,14 +15,12 @@ class IdeogramClient {
     }
   }
 
-  async generateMeme(prompt, style = 'meme') {
+  async generateMeme(prompt, style = 'meme', characterType = 'auto') {
     if (!this.apiKey) {
       throw new Error('Ideogram API key not configured');
     }
 
     try {
-      console.log(`🎨 Generating meme with Ideogram v3: "${prompt}"`);
-      
       // Enhance prompt for meme generation
       const memePrompt = this.enhancePromptForMemes(prompt);
       
@@ -37,9 +35,8 @@ class IdeogramClient {
       formData.append('style_type', style === 'professional' ? 'DESIGN' : 'AUTO');
       
       // Add character reference images if available
-      const characterImages = this.getCharacterReferenceFiles();
+      const characterImages = this.getCharacterReferenceFiles(characterType);
       if (characterImages.length > 0) {
-        console.log(`📷 Adding ${characterImages.length} character reference images`);
         for (const imagePath of characterImages) {
           if (fs.existsSync(imagePath)) {
             formData.append('character_reference_images', fs.createReadStream(imagePath), {
@@ -48,8 +45,6 @@ class IdeogramClient {
             });
           }
         }
-      } else {
-        console.log('💭 No character references - generating text-based meme');
       }
       
       const response = await axios.post(this.baseURL, formData, {
@@ -64,11 +59,9 @@ class IdeogramClient {
 
       if (response.data && response.data.data && response.data.data.length > 0) {
         const imageUrl = response.data.data[0].url;
-        console.log('✅ Meme generated successfully with Ideogram v3');
         return {
           success: true,
-          imageUrl: imageUrl,
-          prompt: memePrompt
+          imageUrl: imageUrl
         };
       } else {
         throw new Error('No image data returned from Ideogram v3');
@@ -81,26 +74,68 @@ class IdeogramClient {
   }
 
   // Get character reference image files for direct upload
-  getCharacterReferenceFiles() {
+  getCharacterReferenceFiles(characterType = 'auto') {
     const referenceFiles = [];
     const baseDir = path.join(process.cwd(), 'meme reference images');
     
     try {
-      // Get Character 1 images
-      const char1Dir = path.join(baseDir, '1');
-      if (fs.existsSync(char1Dir)) {
-        const char1Files = fs.readdirSync(char1Dir)
-          .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/))
-          .slice(0, 1); // Ideogram v3 supports 1 character reference image
+      if (characterType === 'both') {
+        // For both characters, randomly choose between char1 or char2 directory
+        // Since Ideogram v3 only supports 1 character reference image
+        const char1Dir = path.join(baseDir, '1');
+        const char2Dir = path.join(baseDir, '2');
+        const useChar1 = Math.random() < 0.5; // 50/50 chance
         
-        for (const file of char1Files) {
-          referenceFiles.push(path.join(char1Dir, file));
+        if (useChar1 && fs.existsSync(char1Dir)) {
+          const char1Files = fs.readdirSync(char1Dir)
+            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+          if (char1Files.length > 0) {
+            const randomChar1 = char1Files[Math.floor(Math.random() * char1Files.length)];
+            referenceFiles.push(path.join(char1Dir, randomChar1));
+          }
+        } else if (fs.existsSync(char2Dir)) {
+          const char2Files = fs.readdirSync(char2Dir)
+            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+          if (char2Files.length > 0) {
+            const randomChar2 = char2Files[Math.floor(Math.random() * char2Files.length)];
+            referenceFiles.push(path.join(char2Dir, randomChar2));
+          }
+        }
+      } else if (characterType === 'auto') {
+        // For auto, randomly pick from Character 1 directory as default
+        const char1Dir = path.join(baseDir, '1');
+        if (fs.existsSync(char1Dir)) {
+          const char1Files = fs.readdirSync(char1Dir)
+            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+          if (char1Files.length > 0) {
+            const randomChar1 = char1Files[Math.floor(Math.random() * char1Files.length)];
+            referenceFiles.push(path.join(char1Dir, randomChar1));
+          }
+        }
+      } else if (characterType === 'character1') {
+        const char1Dir = path.join(baseDir, '1');
+        if (fs.existsSync(char1Dir)) {
+          const char1Files = fs.readdirSync(char1Dir)
+            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+          if (char1Files.length > 0) {
+            const randomChar1 = char1Files[Math.floor(Math.random() * char1Files.length)];
+            referenceFiles.push(path.join(char1Dir, randomChar1));
+          }
+        }
+      } else if (characterType === 'character2') {
+        const char2Dir = path.join(baseDir, '2');
+        if (fs.existsSync(char2Dir)) {
+          const char2Files = fs.readdirSync(char2Dir)
+            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+          if (char2Files.length > 0) {
+            const randomChar2 = char2Files[Math.floor(Math.random() * char2Files.length)];
+            referenceFiles.push(path.join(char2Dir, randomChar2));
+          }
         }
       }
       
-      console.log(`📷 Found ${referenceFiles.length} character reference files to upload`);
     } catch (error) {
-      console.log('⚠️ No character reference images found, using text-only generation');
+      // Silent fallback
     }
     
     return referenceFiles;
@@ -176,13 +211,10 @@ class IdeogramClient {
       
       if (rand < selectionWeights.both_characters) {
         character = 'both';
-        console.log(`🎲 Weighted selection chose: BOTH characters together (${Math.round(rand * 100)}% roll)`);
       } else if (rand < selectionWeights.both_characters + selectionWeights.character1_solo) {
         character = 'character1';
-        console.log(`🎲 Weighted selection chose: Character 1 solo (${Math.round(rand * 100)}% roll)`);
       } else {
         character = 'character2';
-        console.log(`🎲 Weighted selection chose: Character 2 solo (${Math.round(rand * 100)}% roll)`);
       }
     }
 
@@ -193,8 +225,7 @@ class IdeogramClient {
         prompt += ` related to ${cryptoContext}`;
       }
       prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy';
-      const result = await this.generateMeme(prompt, 'meme');
-      return { ...result, selectedCharacter: 'BOTH CHARACTERS' };
+      return await this.generateMeme(prompt, 'meme', 'both');
     }
 
     // Custom FUSAKA character descriptions based on reference images
@@ -221,8 +252,7 @@ class IdeogramClient {
 
     prompt += ', crypto meme style, funny internet meme format';
 
-    const result = await this.generateMeme(prompt, 'meme');
-    return { ...result, selectedCharacter: character.toUpperCase() };
+    return await this.generateMeme(prompt, 'meme', character);
   }
 
   // Get weighted character recommendation
