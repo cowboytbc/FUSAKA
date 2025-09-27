@@ -27,7 +27,7 @@ class IdeogramClient {
         image_request: {
           prompt: memePrompt,
           aspect_ratio: "ASPECT_1_1", // Square format perfect for memes
-          model: "V_2", // Latest model
+          model: "V_1_5", // Cost-optimized model (50% cheaper than V_2)
           magic_prompt_option: "AUTO", // Let Ideogram enhance the prompt
           style_type: style === 'professional' ? 'DESIGN' : 'AUTO'
         }
@@ -99,9 +99,45 @@ class IdeogramClient {
     return enhancedPrompt;
   }
 
-  // Generate character-based memes
+  // Generate character-based memes with weighted selection
   async generateCharacterMeme(character, situation, cryptoContext = '') {
+    // Character selection probabilities
+    const selectionWeights = {
+      'both_characters': 0.50,    // 50% chance for both characters together
+      'character1_solo': 0.325,   // 32.5% chance for Character 1 solo (65% of remaining 50%)
+      'character2_solo': 0.175,   // 17.5% chance for Character 2 solo (35% of remaining 50%)
+    };
+
+    // If user just says "random" or doesn't specify, use weighted selection including duo option
+    if (character.toLowerCase() === 'random' || character.toLowerCase() === 'any') {
+      const rand = Math.random();
+      
+      if (rand < selectionWeights.both_characters) {
+        character = 'both';
+        console.log(`🎲 Weighted selection chose: BOTH characters together (${Math.round(rand * 100)}% roll)`);
+      } else if (rand < selectionWeights.both_characters + selectionWeights.character1_solo) {
+        character = 'character1';
+        console.log(`🎲 Weighted selection chose: Character 1 solo (${Math.round(rand * 100)}% roll)`);
+      } else {
+        character = 'character2';
+        console.log(`🎲 Weighted selection chose: Character 2 solo (${Math.round(rand * 100)}% roll)`);
+      }
+    }
+
+    // Handle both characters together
+    if (character.toLowerCase().includes('both') || character.toLowerCase().includes('together')) {
+      const prompt = `Character 1 and Character 2 together in ${situation}`;
+      if (cryptoContext) {
+        prompt += ` related to ${cryptoContext}`;
+      }
+      prompt += ', crypto meme style, funny internet meme format, two characters interacting';
+      return await this.generateMeme(prompt, 'meme');
+    }
+
+    // Character descriptions (will be updated with your reference images)
     const characterPrompts = {
+      'character1': 'Character 1 from reference images with distinctive style and features',
+      'character2': 'Character 2 from reference images with unique appearance and characteristics',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',
@@ -123,6 +159,12 @@ class IdeogramClient {
     prompt += ', crypto meme style, funny internet meme format';
 
     return await this.generateMeme(prompt, 'meme');
+  }
+
+  // Get weighted character recommendation
+  getWeightedCharacter() {
+    const rand = Math.random();
+    return rand < 0.65 ? 'character1' : 'character2';
   }
 
   // Test the API connection

@@ -359,18 +359,18 @@ Join our community celebrating both cutting-edge tech AND the memecoin revolutio
         if (!memeInput) {
           await this.bot.sendMessage(chatId, 
             "🎨 **Meme Generator Help**\n\n" +
-            "**Usage:** `/meme [character] [situation]`\n\n" +
-            "**Popular characters:**\n" +
-            "• `vitalik` - Ethereum founder\n" +
-            "• `wojak` - Emotional trader\n" +
-            "• `pepe` - Classic meme frog\n" +
-            "• `chad` - Confident holder\n" +
-            "• `doge` - Much wow, very crypto\n\n" +
+            "**Usage:** `/meme [situation]`\n\n" +
+            "**How it works:**\n" +
+            "• 50% chance - Both FUSAKA characters together\n" +
+            "• 32.5% chance - Main character solo\n" +
+            "• 17.5% chance - Secondary character solo\n" +
+            "• Automatic smart selection!\n\n" +
             "**Examples:**\n" +
-            "• `/meme vitalik celebrating FUSAKA`\n" +
-            "• `/meme wojak diamond hands`\n" +
-            "• `/meme pepe rocket to moon`\n" +
-            "• `/meme chad hodling through dip`",
+            "• `/meme celebrating FUSAKA launch`\n" +
+            "• `/meme diamond hands forever`\n" +
+            "• `/meme rocket to the moon`\n" +
+            "• `/meme happy about gains`\n" +
+            "• `/meme hodling through the dip`",
             { 
               reply_to_message_id: msg.message_id,
               parse_mode: 'Markdown'
@@ -387,14 +387,12 @@ Join our community celebrating both cutting-edge tech AND the memecoin revolutio
           { reply_to_message_id: msg.message_id }
         );
 
-        // Parse character and situation
-        const words = memeInput.split(' ');
-        const character = words[0] || 'wojak';
-        const situation = words.slice(1).join(' ') || 'crypto trading';
+        // Use the entire input as situation, let AI choose characters automatically
+        const situation = memeInput || 'crypto trading';
 
-        // Generate meme
+        // Generate meme with automatic weighted character selection
         const result = await this.ideogramClient.generateCharacterMeme(
-          character, 
+          'random', // Always use weighted selection
           situation, 
           'FUSAKA and Ethereum'
         );
