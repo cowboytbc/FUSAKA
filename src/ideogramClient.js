@@ -81,27 +81,19 @@ class IdeogramClient {
     
     try {
       if (characterType === 'both') {
-        // For both characters, randomly choose between char1 or char2 directory
-        // Since Ideogram v3 only supports 1 character reference image
-        const char1Dir = path.join(baseDir, '1');
-        const char2Dir = path.join(baseDir, '2');
-        const useChar1 = Math.random() < 0.5; // 50/50 chance
-        
-        if (useChar1 && fs.existsSync(char1Dir)) {
-          const char1Files = fs.readdirSync(char1Dir)
+        // For "both characters", first try folder 3 with both characters together
+        const bothDir = path.join(baseDir, '3');
+        if (fs.existsSync(bothDir)) {
+          const bothFiles = fs.readdirSync(bothDir)
             .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
-          if (char1Files.length > 0) {
-            const randomChar1 = char1Files[Math.floor(Math.random() * char1Files.length)];
-            referenceFiles.push(path.join(char1Dir, randomChar1));
-          }
-        } else if (fs.existsSync(char2Dir)) {
-          const char2Files = fs.readdirSync(char2Dir)
-            .filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
-          if (char2Files.length > 0) {
-            const randomChar2 = char2Files[Math.floor(Math.random() * char2Files.length)];
-            referenceFiles.push(path.join(char2Dir, randomChar2));
+          if (bothFiles.length > 0) {
+            const randomBoth = bothFiles[Math.floor(Math.random() * bothFiles.length)];
+            referenceFiles.push(path.join(bothDir, randomBoth));
+            return referenceFiles;
           }
         }
+        // Fallback: no reference images if folder 3 doesn't exist or is empty
+        return [];
       } else if (characterType === 'auto') {
         // For auto, randomly pick from Character 1 directory as default
         const char1Dir = path.join(baseDir, '1');
@@ -145,9 +137,24 @@ class IdeogramClient {
   // Initialize character references (now done during generation)
   async initializeCharacterReferences() {
     console.log('📷 Character reference system ready - using direct file uploads with Ideogram v3');
-    const referenceFiles = this.getCharacterReferenceFiles();
-    if (referenceFiles.length > 0) {
+    
+    // Check all reference directories
+    const baseDir = path.join(process.cwd(), 'meme reference images');
+    const folders = ['1', '2', '3'];
+    let totalImages = 0;
+    
+    folders.forEach(folder => {
+      const dir = path.join(baseDir, folder);
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir).filter(f => f.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/));
+        totalImages += files.length;
+        console.log(`📁 Folder ${folder}: ${files.length} images`);
+      }
+    });
+    
+    if (totalImages > 0) {
       console.log('✅ Character reference system ACTIVE - memes will use your images!');
+      console.log('💡 Tip: Use folder 3 for images with both characters together');
       return true;
     } else {
       console.log('💭 No character reference images found - using text-only generation');
@@ -221,11 +228,11 @@ class IdeogramClient {
 
     // Handle both characters together
     if (character.toLowerCase().includes('both') || character.toLowerCase().includes('together')) {
-      let prompt = `Main FUSAKA character and Secondary FUSAKA character together in ${situation}. Both characters interacting harmoniously with complementary designs and coordinated expressions. Dynamic duo composition with balanced visual weight, perfect anatomy, well-drawn hands with correct fingers`;
+      let prompt = `Two distinct FUSAKA characters together in ${situation}. First character: vibrant blue and purple themed crypto mascot with energetic expression and modern design. Second character: complementary orange and gold themed crypto mascot with different facial features and unique personality. Both characters are clearly different from each other, interacting harmoniously with contrasting but complementary designs. Dynamic duo composition with balanced visual weight, perfect anatomy, well-drawn hands with correct fingers`;
       if (cryptoContext) {
         prompt += ` related to ${cryptoContext}`;
       }
-      prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy, high quality artwork';
+      prompt += ', crypto meme style, funny internet meme format, two distinctly different characters with great chemistry and visual synergy, high quality artwork, clear character differentiation';
       return await this.generateMeme(prompt, 'meme', 'both');
     }
 
