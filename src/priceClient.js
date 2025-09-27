@@ -305,30 +305,45 @@ class PriceClient {
   }
 
   formatPrice(price, currency = 'USD') {
-    if (price >= 1) {
-      return `$${price.toFixed(2)}`;
-    } else if (price >= 0.01) {
-      return `$${price.toFixed(4)}`;
+    if (!price || price === null || price === undefined || isNaN(price)) {
+      return 'N/A';
+    }
+    
+    const numericPrice = Number(price);
+    if (numericPrice >= 1) {
+      return `$${numericPrice.toFixed(2)}`;
+    } else if (numericPrice >= 0.01) {
+      return `$${numericPrice.toFixed(4)}`;
     } else {
-      return `$${price.toFixed(8)}`;
+      return `$${numericPrice.toFixed(8)}`;
     }
   }
 
   formatChange(change) {
-    const emoji = change >= 0 ? '🟢' : '🔴';
-    const sign = change >= 0 ? '+' : '';
-    return `${emoji} ${sign}${change.toFixed(2)}%`;
+    if (!change && change !== 0 || change === null || change === undefined || isNaN(change)) {
+      return '🟡 N/A';
+    }
+    
+    const numericChange = Number(change);
+    const emoji = numericChange >= 0 ? '🟢' : '🔴';
+    const sign = numericChange >= 0 ? '+' : '';
+    return `${emoji} ${sign}${numericChange.toFixed(2)}%`;
   }
 
   formatMarketCap(marketCap) {
-    if (marketCap >= 1e12) {
-      return `$${(marketCap / 1e12).toFixed(2)}T`;
-    } else if (marketCap >= 1e9) {
-      return `$${(marketCap / 1e9).toFixed(2)}B`;
-    } else if (marketCap >= 1e6) {
-      return `$${(marketCap / 1e6).toFixed(2)}M`;
+    if (!marketCap || marketCap === null || marketCap === undefined || isNaN(marketCap)) {
+      return 'N/A';
+    }
+    
+    const numericCap = Number(marketCap);
+    if (numericCap >= 1e12) {
+      return `$${(numericCap / 1e12).toFixed(2)}T`;
+    } else if (numericCap >= 1e9) {
+      return `$${(numericCap / 1e9).toFixed(2)}B`;
+    } else if (numericCap >= 1e6) {
+      return `$${(numericCap / 1e6).toFixed(2)}M`;
     } else {
-      return `$${marketCap.toFixed(0)}`;
+      return `$${numericCap.toFixed(0)}`;
     }
   }
 

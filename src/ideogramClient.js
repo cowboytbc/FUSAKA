@@ -228,7 +228,8 @@ class IdeogramClient {
         prompt += ` related to ${cryptoContext}`;
       }
       prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy';
-      return await this.generateMeme(prompt, 'meme');
+      const result = await this.generateMeme(prompt, 'meme');
+      return { ...result, selectedCharacter: 'BOTH CHARACTERS' };
     }
 
     // Custom FUSAKA character descriptions based on reference images
@@ -255,7 +256,8 @@ class IdeogramClient {
 
     prompt += ', crypto meme style, funny internet meme format';
 
-    return await this.generateMeme(prompt, 'meme');
+    const result = await this.generateMeme(prompt, 'meme');
+    return { ...result, selectedCharacter: character.toUpperCase() };
   }
 
   // Get weighted character recommendation
