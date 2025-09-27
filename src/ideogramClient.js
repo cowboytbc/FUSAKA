@@ -4,11 +4,18 @@ class IdeogramClient {
   constructor() {
     this.apiKey = process.env.IDEOGRAM_API_KEY;
     this.baseURL = 'https://api.ideogram.ai/generate';
+    this.uploadURL = 'https://api.ideogram.ai/images/upload';
+    
+    // Character reference image IDs (will be populated after upload)
+    this.characterImageRefs = {
+      character1: [], // Will store uploaded image IDs for Character 1
+      character2: []  // Will store uploaded image IDs for Character 2
+    };
     
     if (!this.apiKey) {
       console.error('❌ IDEOGRAM_API_KEY not found in environment variables');
     } else {
-      console.log('✅ Ideogram client initialized for meme generation');
+      console.log('✅ Ideogram client initialized for meme generation with image references');
     }
   }
 
@@ -23,14 +30,40 @@ class IdeogramClient {
       // Enhance prompt for meme generation
       const memePrompt = this.enhancePromptForMemes(prompt);
       
-      const response = await axios.post(this.baseURL, {
-        image_request: {
-          prompt: memePrompt,
-          aspect_ratio: "ASPECT_1_1", // Square format perfect for memes
-          model: "V_1_5", // Cost-optimized model (50% cheaper than V_2)
-          magic_prompt_option: "AUTO", // Let Ideogram enhance the prompt
-          style_type: style === 'professional' ? 'DESIGN' : 'AUTO'
+      // Prepare image request with reference images if available
+      const imageRequest = {
+        prompt: memePrompt,
+        aspect_ratio: "ASPECT_1_1", // Square format perfect for memes
+        model: "V_1_5", // Cost-optimized model (50% cheaper than V_2)
+        magic_prompt_option: "AUTO", // Let Ideogram enhance the prompt
+        style_type: style === 'professional' ? 'DESIGN' : 'AUTO'
+      };
+      
+      // Add image references if we have character images uploaded
+      if (this.characterImageRefs.character1.length > 0 || this.characterImageRefs.character2.length > 0) {
+        imageRequest.image_references = [];
+        
+        // Add random Character 1 reference if available
+        if (this.characterImageRefs.character1.length > 0) {
+          const randomChar1 = this.characterImageRefs.character1[Math.floor(Math.random() * this.characterImageRefs.character1.length)];
+          imageRequest.image_references.push({
+            image_id: randomChar1,
+            weight: 0.8 // Strong influence on generation
+          });
         }
+        
+        // Add random Character 2 reference if available and prompt suggests both characters
+        if (this.characterImageRefs.character2.length > 0 && (memePrompt.toLowerCase().includes('both') || memePrompt.toLowerCase().includes('together'))) {
+          const randomChar2 = this.characterImageRefs.character2[Math.floor(Math.random() * this.characterImageRefs.character2.length)];
+          imageRequest.image_references.push({
+            image_id: randomChar2,
+            weight: 0.8 // Strong influence on generation
+          });
+        }
+      }
+      
+      const response = await axios.post(this.baseURL, {
+        image_request: imageRequest
       }, {
         headers: {
           'Api-Key': this.apiKey,
@@ -54,6 +87,70 @@ class IdeogramClient {
     } catch (error) {
       console.error('❌ Ideogram API Error:', error.response?.data || error.message);
       throw new Error(`Failed to generate meme: ${error.message}`);
+    }
+  }
+
+  // Upload reference images for characters
+  async uploadReferenceImages() {
+    try {
+      console.log('📷 Uploading character reference images...');
+      
+      const fs = require('fs');
+      const path = require('path');
+      const FormData = require('form-data');
+      
+      // Upload Character 1 images
+      const char1Dir = path.join(process.cwd(), 'meme reference images', '1');
+      const char1Files = fs.readdirSync(char1Dir).filter(f => f.endsWith('.jpg'));
+      
+      for (const file of char1Files) {
+        const filePath = path.join(char1Dir, file);
+        const formData = new FormData();
+        formData.append('image', fs.createReadStream(filePath));
+        
+        const uploadResponse = await axios.post(this.uploadURL, formData, {
+          headers: {
+            'Api-Key': this.apiKey,
+            ...formData.getHeaders()
+          },
+          timeout: 30000
+        });
+        
+        if (uploadResponse.data && uploadResponse.data.image_id) {
+          this.characterImageRefs.character1.push(uploadResponse.data.image_id);
+          console.log(`✅ Uploaded Character 1 reference: ${file}`);
+        }
+      }
+      
+      // Upload Character 2 images
+      const char2Dir = path.join(process.cwd(), 'meme reference images', '2');
+      const char2Files = fs.readdirSync(char2Dir).filter(f => f.endsWith('.jpg'));
+      
+      for (const file of char2Files) {
+        const filePath = path.join(char2Dir, file);
+        const formData = new FormData();
+        formData.append('image', fs.createReadStream(filePath));
+        
+        const uploadResponse = await axios.post(this.uploadURL, formData, {
+          headers: {
+            'Api-Key': this.apiKey,
+            ...formData.getHeaders()
+          },
+          timeout: 30000
+        });
+        
+        if (uploadResponse.data && uploadResponse.data.image_id) {
+          this.characterImageRefs.character2.push(uploadResponse.data.image_id);
+          console.log(`✅ Uploaded Character 2 reference: ${file}`);
+        }
+      }
+      
+      console.log(`🎨 Character references uploaded: ${this.characterImageRefs.character1.length} for Char1, ${this.characterImageRefs.character2.length} for Char2`);
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error uploading reference images:', error.message);
+      return false;
     }
   }
 
@@ -126,18 +223,18 @@ class IdeogramClient {
 
     // Handle both characters together
     if (character.toLowerCase().includes('both') || character.toLowerCase().includes('together')) {
-      const prompt = `Character 1 and Character 2 together in ${situation}`;
+      let prompt = `Main FUSAKA character and Secondary FUSAKA character together in ${situation}. Both characters interacting harmoniously with complementary designs and coordinated expressions. Dynamic duo composition with balanced visual weight`;
       if (cryptoContext) {
         prompt += ` related to ${cryptoContext}`;
       }
-      prompt += ', crypto meme style, funny internet meme format, two characters interacting';
+      prompt += ', crypto meme style, funny internet meme format, two characters with great chemistry and visual synergy';
       return await this.generateMeme(prompt, 'meme');
     }
 
-    // Character descriptions (will be updated with your reference images)
+    // Custom FUSAKA character descriptions based on reference images
     const characterPrompts = {
-      'character1': 'Character 1 from reference images with distinctive style and features',
-      'character2': 'Character 2 from reference images with unique appearance and characteristics',
+      'character1': 'Main FUSAKA character with distinctive design elements, consistent art style, and recognizable visual features from the reference collection. Vibrant colors, expressive personality, and crypto-themed aesthetic',
+      'character2': 'Secondary FUSAKA character with unique appearance and complementary design to Character 1. Distinctive visual characteristics that pair well in duo scenes while maintaining individual identity',
       'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
       'wojak': 'Wojak character with emotional expression',
       'pepe': 'Pepe the frog character',

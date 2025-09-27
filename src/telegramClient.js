@@ -29,6 +29,9 @@ class TelegramClient {
     this.priceClient = new PriceClient();
     this.ideogramClient = new IdeogramClient();
     
+    // Initialize character reference images on startup
+    this.initializeCharacterReferences();
+    
     // Track organic responses to prevent spam
     this.recentResponses = new Map(); // chatId -> timestamp of last organic response
     this.responseCooldown = 30000; // 30 seconds between organic responses per chat
@@ -530,6 +533,22 @@ Current context: Today is ${new Date().toLocaleDateString('en-US')}`;
     });
 
     console.log('✅ Telegram bot commands and handlers set up');
+  }
+
+  // Initialize character reference images
+  async initializeCharacterReferences() {
+    try {
+      console.log('📸 Initializing FUSAKA character reference images...');
+      const success = await this.ideogramClient.uploadReferenceImages();
+      if (success) {
+        console.log('🎨 Character references ready for accurate meme generation!');
+      } else {
+        console.log('⚠️ Using text descriptions as fallback for meme generation');
+      }
+    } catch (error) {
+      console.error('❌ Error initializing character references:', error.message);
+      console.log('📝 Falling back to text-based character descriptions');
+    }
   }
 
   async testConnection() {
