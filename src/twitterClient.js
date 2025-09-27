@@ -80,10 +80,10 @@ class TwitterClient {
           // 40% chance: Post meme (if enabled)
           await this.postAutomaticMeme();
         } else if (rand < 0.7 && this.config.priceUpdates) {
-          // 30% chance: Engaging price update with context
+          // 30% chance: Engaging price update with context (with API validation)
           await this.postEngagingPriceUpdate();
         } else if (this.config.marketUpdates) {
-          // 30% chance: Relevant market insight with discussion starter
+          // 30% chance: Relevant market insight with discussion starter (with API validation)
           await this.postRelevantInsight();
         }
       } catch (error) {
@@ -249,7 +249,15 @@ class TwitterClient {
     try {
       const ethPrice = await this.priceClient.getPrice('ethereum');
       
-      if (ethPrice.success) {
+      // Validate API response and data quality
+      if (ethPrice.success && 
+          ethPrice.price && 
+          !isNaN(parseFloat(ethPrice.price)) && 
+          ethPrice.change24h !== null && 
+          !isNaN(parseFloat(ethPrice.change24h))) {
+        
+        console.log('✅ Valid price data received, posting price-based content');
+        
         // Generate contextual, engaging content based on price movement
         const change = parseFloat(ethPrice.change24h);
         let context = '';
@@ -277,9 +285,20 @@ class TwitterClient {
           await this.readWriteClient.v2.tweet({ text: finalTweet });
           console.log('✅ Posted engaging price update to Twitter');
         }
+      } else {
+        // Fallback: Post general crypto content when price API is unavailable
+        console.log('⚠️ Price API unavailable, posting general crypto content instead');
+        await this.postTrendingContent();
       }
     } catch (error) {
       console.error('❌ Error posting engaging price update:', error);
+      // Fallback on error: Post general content
+      try {
+        console.log('⚠️ Falling back to general content due to price API error');
+        await this.postTrendingContent();
+      } catch (fallbackError) {
+        console.error('❌ Fallback content also failed:', fallbackError);
+      }
     }
   }
 
@@ -287,7 +306,12 @@ class TwitterClient {
     try {
       const ethPrice = await this.priceClient.getPrice('ethereum');
       
-      if (ethPrice.success) {
+      // Validate API response and data quality
+      if (ethPrice.success && 
+          ethPrice.price && 
+          !isNaN(parseFloat(ethPrice.price))) {
+        
+        console.log('✅ Valid price data received for insights');
         // Generate contextually relevant topics
         const topics = [
           'Layer 2 scaling solutions and their impact on Ethereum adoption',
@@ -313,9 +337,20 @@ class TwitterClient {
           await this.readWriteClient.v2.tweet({ text: tweetText });
           console.log('✅ Posted relevant insight to Twitter');
         }
+      } else {
+        // Fallback: Post general insight without price reference
+        console.log('⚠️ Price API unavailable, posting general insight instead');
+        await this.postGeneralInsight();
       }
     } catch (error) {
       console.error('❌ Error posting relevant insight:', error);
+      // Fallback on error
+      try {
+        console.log('⚠️ Falling back to general insight due to price API error');
+        await this.postGeneralInsight();
+      } catch (fallbackError) {
+        console.error('❌ Fallback insight also failed:', fallbackError);
+      }
     }
   }
 
@@ -353,6 +388,38 @@ class TwitterClient {
       }
     } catch (error) {
       console.error('❌ Error handling mentions:', error);
+    }
+  }
+
+  // Fallback method for general insights without price data
+  async postGeneralInsight() {
+    try {
+      const generalTopics = [
+        'The evolution of decentralized governance and DAOs',
+        'Ethereum ecosystem growth and developer adoption',
+        'Layer 2 innovations reshaping blockchain scalability',
+        'DeFi composability and financial innovation',
+        'NFT utility beyond digital art and collectibles',
+        'Web3 identity and privacy solutions',
+        'Blockchain interoperability and cross-chain future',
+        'Sustainable blockchain technology and energy efficiency',
+        'Institutional crypto adoption trends',
+        'Regulatory clarity and blockchain mainstream adoption'
+      ];
+      
+      const randomTopic = generalTopics[Math.floor(Math.random() * generalTopics.length)];
+      
+      const prompt = `Create an engaging crypto Twitter thread starter about: ${randomTopic}. No price references needed. Include hot takes, predictions, or thought-provoking questions. Be insightful and spark discussion. Use crypto Twitter language. Max 240 chars before hashtags.`;
+      
+      const insight = await this.grokClient.generateResponse(prompt);
+      const tweetText = `${insight}\n\n💭 What's your take? 👇\n\n#Ethereum #FUSAKA #Crypto #Web3`;
+      
+      if (tweetText.length <= 280) {
+        await this.readWriteClient.v2.tweet({ text: tweetText });
+        console.log('✅ Posted general insight to Twitter');
+      }
+    } catch (error) {
+      console.error('❌ Error posting general insight:', error);
     }
   }
 
