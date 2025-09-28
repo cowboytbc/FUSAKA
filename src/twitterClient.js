@@ -279,7 +279,7 @@ class TwitterClient {
       const ethPrice = await this.priceClient.getPrice('ethereum');
       
       // Validate API response and data quality
-      if (ethPrice.success && 
+      if (ethPrice && 
           ethPrice.price && 
           !isNaN(parseFloat(ethPrice.price)) && 
           ethPrice.change24h !== null && 
@@ -336,7 +336,7 @@ class TwitterClient {
       const ethPrice = await this.priceClient.getPrice('ethereum');
       
       // Validate API response and data quality
-      if (ethPrice.success && 
+      if (ethPrice && 
           ethPrice.price && 
           !isNaN(parseFloat(ethPrice.price))) {
         
