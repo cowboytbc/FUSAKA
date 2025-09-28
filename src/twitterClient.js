@@ -48,7 +48,15 @@ class TwitterClient {
     try {
       // Test connection
       const me = await this.readWriteClient.currentUser();
-      console.log(`🐦 Connected to Twitter as @${me.data.username}`);
+      console.log('🔍 Twitter API response:', me);
+      
+      if (me && me.data && me.data.username) {
+        console.log(`🐦 Connected to Twitter as @${me.data.username}`);
+      } else if (me && me.username) {
+        console.log(`🐦 Connected to Twitter as @${me.username}`);
+      } else {
+        console.log('🐦 Connected to Twitter (username not available in response)');
+      }
 
       // Initialize character references
       await this.ideogramClient.initializeCharacterReferences();
@@ -98,14 +106,18 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 2 minutes
+    // Check mentions every 10 minutes (rate limit: 75/15min)
     setInterval(async () => {
       try {
         await this.checkAndReplyToMentions();
       } catch (error) {
-        console.error('❌ Error checking mentions:', error);
+        if (error.code === 429) {
+          console.log('⏳ Rate limited on mentions - waiting...');
+        } else {
+          console.error('❌ Error checking mentions:', error.message);
+        }
       }
-    }, 2 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
     console.log('👂 Mention monitoring started');
   }
@@ -114,14 +126,18 @@ class TwitterClient {
   startVitalikMonitoring() {
     if (!this.config.replyToVitalik) return;
 
-    // Check Vitalik's posts every 5 minutes
+    // Check Vitalik's posts every 15 minutes (rate limit: 1500/15min)
     setInterval(async () => {
       try {
         await this.checkVitalikPosts();
       } catch (error) {
-        console.error('❌ Error checking Vitalik posts:', error);
+        if (error.code === 429) {
+          console.log('⏳ Rate limited on Vitalik posts - waiting...');
+        } else {
+          console.error('❌ Error checking Vitalik posts:', error.message);
+        }
       }
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
 
     console.log('👨‍💻 Vitalik monitoring started');
   }
@@ -167,9 +183,22 @@ class TwitterClient {
         exclude: ['retweets', 'replies']
       });
 
-      if (!vitalikTweets.data) return;
+      // Validate Vitalik tweets response structure
+      if (!vitalikTweets || !vitalikTweets.data || !Array.isArray(vitalikTweets.data)) {
+        console.log('📭 No recent Vitalik posts found');
+        return;
+      }
 
-      for (const tweet of vitalikTweets.data) {
+      console.log(`👨‍💻 Found ${vitalikTweets.data.length} recent Vitalik posts`);
+
+      // Process tweets with delays to avoid rate limits
+      for (let i = 0; i < vitalikTweets.data.length; i++) {
+        const tweet = vitalikTweets.data[i];
+        
+        // Add delay between processing tweets
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+        }
         // Skip if older than 10 minutes
         const tweetTime = new Date(tweet.created_at);
         const now = new Date();
@@ -365,9 +394,22 @@ class TwitterClient {
         }
       );
 
-      if (!mentions.data) return;
+      // Validate mentions response structure
+      if (!mentions || !mentions.data || !Array.isArray(mentions.data)) {
+        console.log('📭 No new mentions found');
+        return;
+      }
 
-      for (const mention of mentions.data) {
+      console.log(`📬 Found ${mentions.data.length} recent mentions`);
+
+      // Process mentions with delays to avoid rate limits
+      for (let i = 0; i < mentions.data.length; i++) {
+        const mention = mentions.data[i];
+        
+        // Add delay between processing mentions
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+        }
         // Skip if older than 15 minutes
         const mentionTime = new Date(mention.created_at);
         const now = new Date();
