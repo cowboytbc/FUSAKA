@@ -30,18 +30,19 @@ class IdeogramClient {
       // Get character reference images first
       const characterImages = this.getCharacterReferenceFiles(characterType);
       
-      // Add basic parameters
+      // Add high-quality parameters
       formData.append('prompt', memePrompt);
       formData.append('aspect_ratio', '1x1'); // Square format for memes
-      formData.append('rendering_speed', 'QUALITY'); // Higher quality generation
-      formData.append('magic_prompt', 'OFF'); // Disable magic prompt to keep our specific descriptions
+      formData.append('rendering_speed', 'QUALITY'); // Highest quality
+      formData.append('magic_prompt', 'ON'); // Enable magic prompt for better results
+      formData.append('model', 'V_2'); // Use latest model
       
-      // Use compatible style type for character references
+      // Use DESIGN style for better meme aesthetics
       const hasCharacterRef = characterImages.length > 0;
-      const styleType = hasCharacterRef ? 'AUTO' : 'GENERAL'; // AUTO is compatible with character references
+      const styleType = hasCharacterRef ? 'DESIGN' : 'DESIGN'; // DESIGN style for clean memes
       formData.append('style_type', styleType);
       
-      formData.append('negative_prompt', 'distorted objects, warped items, melted objects, twisted things, deformed items, morphed objects, floating objects, disconnected parts, broken items, fragmented objects, glitched items, corrupted objects, malformed tools, weird shapes, abstract mess, surreal distortion, extra arms, extra legs, multiple arms, multiple legs, third arm, fourth leg, too many limbs, extra limbs, missing limbs, more than two arms, more than two legs, six limbs, eight limbs, spider legs, multiple appendages, boring, corporate, traditional finance, banks, suit and tie, formal business, anti-crypto, regulatory, serious corporate headshot, human hands, fingers, distorted anatomy, deformed face, ugly, blurry, low quality, bad proportions, mutated, disfigured, poorly drawn, amateur art, sketch, draft');
+      formData.append('negative_prompt', 'ugly, blurry, low quality, bad anatomy, deformed, distorted, extra limbs, missing limbs, bad proportions, disfigured, poorly drawn, amateur, sketch, draft, watermark, text overlay, signature, copyright, low resolution, pixelated, grainy, artifacts, compression, bad lighting, overexposed, underexposed, boring composition, cluttered, messy background, distracting elements, corporate stock photo, generic, uninspired, bad color palette, muddy colors, washed out');
       
       // Add character reference images if available
       if (characterImages.length > 0) {
@@ -156,26 +157,11 @@ class IdeogramClient {
   }
 
   enhancePromptForMemes(originalPrompt) {
-    // Add crypto meme culture elements
+    // Minimal prompt - let reference images do the work
     let enhancedPrompt = originalPrompt;
     
-    // Crypto meme culture elements
-    const cryptoElements = [
-      "crypto meme style",
-      "internet meme aesthetic", 
-      "wojak energy",
-      "pepe vibes",
-      "diamond hands attitude",
-      "to the moon energy",
-      "degen culture",
-      "crypto Twitter aesthetic"
-    ];
-    
-    const randomCryptoElement = cryptoElements[Math.floor(Math.random() * cryptoElements.length)];
-    enhancedPrompt += `, ${randomCryptoElement}`;
-    
-    // Add quality and crypto-specific style modifiers with anatomy and object emphasis
-    enhancedPrompt += ", meme template style, viral social media format, crypto community approved, high quality digital art, bold and expressive, internet culture, memeable character design, sharp focus, correct anatomy with exactly two arms and two legs, proper limb count, four limbs total, clean objects, well-defined items, properly rendered objects, clear shapes, coherent forms, solid objects";
+    // Add only essential quality terms
+    enhancedPrompt += ', high quality, clean, professional, meme style';
 
     return enhancedPrompt;
   }
@@ -188,29 +174,18 @@ class IdeogramClient {
       character = rand < 0.5 ? 'character1' : 'character2';
     }
 
-    // Custom FUSAKA character descriptions based on reference images
-    const characterPrompts = {
-      'character1': 'FUSAKA crypto mascot character with paws, exactly two arms and two legs, proper anatomy with four limbs total, clean well-defined objects, properly rendered items, clear shapes and forms, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, diamond hands energy, memeable and relatable, high quality digital art',
-      'character2': 'FUSAKA crypto mascot character with hooves, exactly two arms and two legs, proper anatomy with four limbs total, clean well-defined objects, properly rendered items, clear shapes and forms, meme-ready design, expressive face perfect for reactions, crypto community vibes, bold personality, to the moon attitude, memeable and relatable, high quality digital art',
-      'vitalik': 'Vitalik Buterin with his characteristic smile and ethereum hoodie',
-      'wojak': 'Wojak character with emotional expression',
-      'pepe': 'Pepe the frog character',
-      'doge': 'Doge shiba inu dog with comic sans text',
-      'chad': 'Gigachad character with confident pose',
-      'cope': 'Cope wojak character looking distressed',
-      'diamond_hands': 'Diamond hands character holding cryptocurrencies',
-      'paper_hands': 'Paper hands character panic selling'
-    };
-
-    const characterDesc = characterPrompts[character.toLowerCase()] || `${character} character`;
+    // Use ONLY reference images - no character descriptions
+    // The reference images will define the character appearance completely
     
-    let prompt = `${characterDesc} in ${situation}`;
+    // Build minimal prompt focused on situation and quality
+    let prompt = `${situation}`;
     
     if (cryptoContext) {
-      prompt += ` related to ${cryptoContext}`;
+      prompt += ` ${cryptoContext}`;
     }
-
-    prompt += ', crypto meme style, funny internet meme format';
+    
+    // Add only essential quality and style terms
+    prompt += ', high quality, clean composition, professional digital art, meme style';
 
     return await this.generateMeme(prompt, 'meme', character);
   }
