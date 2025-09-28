@@ -76,7 +76,7 @@ class TwitterClient {
 
   // Automated tweet scheduler
   startAutomatedTweets() {
-    if (!this.config.autoMemeTweets && !this.config.priceUpdates) return;
+    if (!this.config.autoMemeTweets && !this.config.priceUpdates && !this.config.marketUpdates) return;
 
     const intervalMs = this.config.autoTweetInterval * 60 * 1000;
     
