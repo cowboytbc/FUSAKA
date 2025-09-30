@@ -46,16 +46,16 @@ async function startBots() {
     const telegramClient = new TelegramClient();
     const twitterClient = new TwitterClient();
 
-    // Start Telegram bot
-    console.log('🚀 Starting FUSAKA Telegram Bot...');
-    const telegramSuccess = await telegramClient.testConnection();
+    // TEMPORARILY DISABLE Telegram bot (to test Twitter)
+    console.log('⏸️  SKIPPING Telegram Bot (testing Twitter only)...');
+    const telegramSuccess = false; // Disabled for testing
     
-    if (telegramSuccess) {
-      console.log('🎉 FUSAKA Telegram Bot is running and ready for /ask commands!');
-      console.log('🔄 Bot will continue running in polling mode...');
-    } else {
-      console.error('❌ Failed to start Telegram bot');
-    }
+    // if (telegramSuccess) {
+    //   console.log('🎉 FUSAKA Telegram Bot is running and ready for /ask commands!');
+    //   console.log('🔄 Bot will continue running in polling mode...');
+    // } else {
+    //   console.error('❌ Failed to start Telegram bot');
+    // }
 
     // Start Twitter bot (if enabled)
     console.log('🐦 Starting FUSAKA Twitter Bot...');
