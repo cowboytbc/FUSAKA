@@ -48,7 +48,7 @@ async function startBots() {
 
     // Start Telegram bot
     console.log('📱 Starting FUSAKA Telegram Bot...');
-    const telegramSuccess = await telegramClient.start();
+    const telegramSuccess = await telegramClient.testConnection();
     
     if (telegramSuccess) {
       console.log('🎉 FUSAKA Telegram Bot is running and ready for /ask commands!');
