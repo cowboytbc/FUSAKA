@@ -37,9 +37,9 @@ class IdeogramClient {
       formData.append('magic_prompt', 'ON'); // Enable magic prompt for better results
       formData.append('model', 'V_2'); // Use latest model
       
-      // Use DESIGN style for better meme aesthetics
+      // Use compatible style type for character references
       const hasCharacterRef = characterImages.length > 0;
-      const styleType = hasCharacterRef ? 'DESIGN' : 'DESIGN'; // DESIGN style for clean memes
+      const styleType = hasCharacterRef ? 'AUTO' : 'DESIGN'; // AUTO for character refs, DESIGN for text-only
       formData.append('style_type', styleType);
       
       formData.append('negative_prompt', 'ugly, blurry, low quality, bad anatomy, deformed, distorted, extra limbs, missing limbs, bad proportions, disfigured, poorly drawn, amateur, sketch, draft, watermark, text overlay, signature, copyright, low resolution, pixelated, grainy, artifacts, compression, bad lighting, overexposed, underexposed, boring composition, cluttered, messy background, distracting elements, corporate stock photo, generic, uninspired, bad color palette, muddy colors, washed out');
