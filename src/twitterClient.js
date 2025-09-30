@@ -50,7 +50,9 @@ class TwitterClient {
       const me = await this.readWriteClient.currentUser();
       console.log('🔍 Twitter API response:', me);
       
-      if (me && me.data && me.data.username) {
+      if (me && me.screen_name) {
+        console.log(`🐦 Connected to Twitter as @${me.screen_name}`);
+      } else if (me && me.data && me.data.username) {
         console.log(`🐦 Connected to Twitter as @${me.data.username}`);
       } else if (me && me.username) {
         console.log(`🐦 Connected to Twitter as @${me.username}`);
