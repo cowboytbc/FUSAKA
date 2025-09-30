@@ -2,6 +2,7 @@ const { TwitterApi } = require('twitter-api-v2');
 const GrokClient = require('./grokClient');
 const PriceClient = require('./priceClient');
 const IdeogramClient = require('./ideogramClient');
+const TwitterRateLimiter = require('./twitterRateLimiter');
 
 class TwitterClient {
   constructor() {
@@ -20,6 +21,7 @@ class TwitterClient {
     this.grokClient = new GrokClient();
     this.priceClient = new PriceClient();
     this.ideogramClient = new IdeogramClient();
+    this.rateLimiter = new TwitterRateLimiter();
 
     // Configuration from environment
     this.config = {
@@ -95,6 +97,12 @@ class TwitterClient {
     
     setInterval(async () => {
       try {
+        // Check rate limits before posting
+        if (!this.rateLimiter.canTweet('automated')) {
+          console.log('⏸️ Skipping automated tweet due to rate limits');
+          return;
+        }
+        
         const rand = Math.random();
         
         if (rand < 0.4 && this.config.autoMemeTweets) {
@@ -328,17 +336,19 @@ class TwitterClient {
         
         if (finalTweet.length <= 280) {
           const result = await this.readWriteClient.v2.tweet({ text: finalTweet });
+          this.rateLimiter.recordTweet('price_update');
           console.log('✅ Posted engaging price update to Twitter');
           console.log(`🐦 Tweet ID: ${result.data.id}`);
         } else {
-          console.log('❌ Tweet too long! Truncating and trying again...');
-          // Truncate the content and try again
+          console.log('❌ Tweet too long! Smart truncating and trying again...');
+          // Smart truncation - find natural breakpoints
           const maxContent = 280 - 80; // Reserve space for price info and hashtags
-          const truncatedContent = engagingContent.substring(0, maxContent) + '...';
+          const truncatedContent = this.smartTruncate(engagingContent, maxContent);
           const truncatedTweet = `${truncatedContent}\n\n💰 $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #FUSAKA #Crypto`;
           
           console.log(`📏 Truncated length: ${truncatedTweet.length}/280 characters`);
           const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+          this.rateLimiter.recordTweet('price_update');
           console.log('✅ Posted truncated engaging price update to Twitter');
           console.log(`🐦 Tweet ID: ${result.data.id}`);
         }
@@ -541,6 +551,55 @@ class TwitterClient {
       console.error('❌ Twitter connection test failed:', error);
       return false;
     }
+  }
+
+  // Smart truncation that preserves sentence integrity
+  smartTruncate(text, maxLength) {
+    if (text.length <= maxLength) {
+      return text;
+    }
+    
+    // Try to find natural breakpoints in order of preference
+    const breakpoints = [
+      '! ', '. ', '? ',  // End of sentences
+      '; ', ': ',        // Mid-sentence breaks
+      ', ',              // Comma breaks
+      ' and ', ' but ', ' or ', ' so ', // Conjunction breaks
+      ' '                // Last resort: any space
+    ];
+    
+    let bestCut = 0;
+    
+    for (const breakpoint of breakpoints) {
+      const lastIndex = text.lastIndexOf(breakpoint, maxLength);
+      if (lastIndex > bestCut && lastIndex > maxLength * 0.7) { // Don't cut too early
+        bestCut = lastIndex + breakpoint.length;
+        break;
+      }
+    }
+    
+    // If no good breakpoint found, cut at word boundary
+    if (bestCut === 0) {
+      bestCut = text.lastIndexOf(' ', maxLength);
+      if (bestCut === -1) bestCut = maxLength;
+    }
+    
+    let result = text.substring(0, bestCut).trim();
+    
+    // Add appropriate ending punctuation if needed
+    if (!result.match(/[.!?]$/)) {
+      // If it ends with a comma or incomplete thought, remove it
+      result = result.replace(/[,;:]$/, '');
+      
+      // Add period if it's a complete thought, exclamation if bullish
+      if (result.match(/\b(bullish|moon|pump|strong|solid|rising)\b/i)) {
+        result += '!';
+      } else {
+        result += '.';
+      }
+    }
+    
+    return result;
   }
 }
 
