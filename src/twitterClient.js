@@ -323,9 +323,24 @@ class TwitterClient {
         const engagingContent = await this.grokClient.generateResponse(prompt);
         const finalTweet = `${engagingContent}\n\n💰 $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #FUSAKA #Crypto`;
         
+        console.log(`📏 Tweet length: ${finalTweet.length}/280 characters`);
+        console.log(`📝 Tweet content: ${finalTweet}`);
+        
         if (finalTweet.length <= 280) {
-          await this.readWriteClient.v2.tweet({ text: finalTweet });
+          const result = await this.readWriteClient.v2.tweet({ text: finalTweet });
           console.log('✅ Posted engaging price update to Twitter');
+          console.log(`🐦 Tweet ID: ${result.data.id}`);
+        } else {
+          console.log('❌ Tweet too long! Truncating and trying again...');
+          // Truncate the content and try again
+          const maxContent = 280 - 80; // Reserve space for price info and hashtags
+          const truncatedContent = engagingContent.substring(0, maxContent) + '...';
+          const truncatedTweet = `${truncatedContent}\n\n💰 $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #FUSAKA #Crypto`;
+          
+          console.log(`📏 Truncated length: ${truncatedTweet.length}/280 characters`);
+          const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+          console.log('✅ Posted truncated engaging price update to Twitter');
+          console.log(`🐦 Tweet ID: ${result.data.id}`);
         }
       } else {
         // Fallback: Post general crypto content when price API is unavailable
