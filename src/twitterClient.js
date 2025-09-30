@@ -127,9 +127,13 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 10 minutes (rate limit: 75/15min)
+    // HEAVILY LIMITED: Check mentions every 8 hours due to 100 reads/month limit
     setInterval(async () => {
       try {
+        if (!this.rateLimiter.canRead('mentions')) {
+          console.log('⏸️ Skipping mention check due to read limits');
+          return;
+        }
         await this.checkAndReplyToMentions();
       } catch (error) {
         if (error.code === 429) {
@@ -138,14 +142,15 @@ class TwitterClient {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 10 * 60 * 1000);
+    }, 8 * 60 * 60 * 1000); // 8 hours (3 times per day max)
 
-    console.log('👂 Mention monitoring started');
+    console.log('👂 Mention monitoring started (every 8 hours due to API limits)');
   }
 
   // Monitor Vitalik's posts and respond
   startVitalikMonitoring() {
-    if (!this.config.replyToVitalik) return;
+    console.log('⚠️ Vitalik monitoring DISABLED due to Twitter API read limits (100/month)');
+    return; // Disabled completely due to read limits
 
     // Check Vitalik's posts every 15 minutes (rate limit: 1500/15min)
     setInterval(async () => {
@@ -423,7 +428,7 @@ class TwitterClient {
 
   async checkAndReplyToMentions() {
     try {
-      // Get recent mentions (last 15 minutes)
+      // Get recent mentions (limited due to API quotas)
       const mentions = await this.readWriteClient.v2.userMentionTimeline(
         process.env.TWITTER_USER_ID,
         { 
@@ -431,14 +436,15 @@ class TwitterClient {
           'tweet.fields': ['created_at', 'author_id', 'text']
         }
       );
-
+      
+      // Record the API read
+      this.rateLimiter.recordRead('mentions');
+      
       // Validate mentions response structure
       if (!mentions || !mentions.data || !Array.isArray(mentions.data)) {
         console.log('📭 No new mentions found');
         return;
-      }
-
-      console.log(`📬 Found ${mentions.data.length} recent mentions`);
+      }      console.log(`📬 Found ${mentions.data.length} recent mentions`);
 
       // Process mentions with delays to avoid rate limits
       for (let i = 0; i < mentions.data.length; i++) {
