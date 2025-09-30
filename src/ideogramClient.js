@@ -42,7 +42,7 @@ class IdeogramClient {
       const styleType = hasCharacterRef ? 'AUTO' : 'DESIGN'; // AUTO for character refs, DESIGN for text-only
       formData.append('style_type', styleType);
       
-      formData.append('negative_prompt', 'ugly, blurry, low quality, bad anatomy, deformed, distorted, extra limbs, missing limbs, bad proportions, disfigured, poorly drawn, amateur, sketch, draft, watermark, text overlay, signature, copyright, low resolution, pixelated, grainy, artifacts, compression, bad lighting, overexposed, underexposed, boring composition, cluttered, messy background, distracting elements, corporate stock photo, generic, uninspired, bad color palette, muddy colors, washed out');
+      formData.append('negative_prompt', 'female, feminine features, woman, girl, lady, feminine, ugly, blurry, low quality, bad anatomy, deformed, distorted, extra limbs, missing limbs, bad proportions, disfigured, poorly drawn, amateur, sketch, draft, watermark, text overlay, signature, copyright, low resolution, pixelated, grainy, artifacts, compression, bad lighting, overexposed, underexposed, boring composition, cluttered, messy background, distracting elements, corporate stock photo, generic, uninspired, bad color palette, muddy colors, washed out');
       
       // Add character reference images if available
       if (characterImages.length > 0) {
@@ -160,6 +160,9 @@ class IdeogramClient {
     // Minimal prompt - let reference images do the work
     let enhancedPrompt = originalPrompt;
     
+    // Add essential gender specification for characters
+    enhancedPrompt += ', male character, masculine features';
+    
     // Add only essential quality terms
     enhancedPrompt += ', high quality, clean, professional, meme style';
 
@@ -174,18 +177,18 @@ class IdeogramClient {
       character = rand < 0.5 ? 'character1' : 'character2';
     }
 
-    // Use ONLY reference images - no character descriptions
-    // The reference images will define the character appearance completely
+    // Use reference images + explicit gender specification
+    // The reference images will define the character appearance, but we'll reinforce gender
     
-    // Build minimal prompt focused on situation and quality
-    let prompt = `${situation}`;
+    // Build prompt with explicit male character specification
+    let prompt = `male character, ${situation}`;
     
     if (cryptoContext) {
       prompt += ` ${cryptoContext}`;
     }
     
-    // Add only essential quality and style terms
-    prompt += ', high quality, clean composition, professional digital art, meme style';
+    // Add essential style terms with gender reinforcement
+    prompt += ', masculine features, male, high quality, clean composition, professional digital art, meme style';
 
     return await this.generateMeme(prompt, 'meme', character);
   }
