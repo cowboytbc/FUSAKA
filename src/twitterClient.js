@@ -82,6 +82,17 @@ class TwitterClient {
 
     const intervalMs = this.config.autoTweetInterval * 60 * 1000;
     
+    // Post initial tweet immediately when bot starts
+    setTimeout(async () => {
+      try {
+        console.log('🚀 Posting initial startup tweet...');
+        await this.postEngagingPriceUpdate();
+        console.log('✅ Initial startup tweet posted successfully!');
+      } catch (error) {
+        console.error('❌ Error posting initial tweet:', error);
+      }
+    }, 5000); // Wait 5 seconds for everything to initialize
+    
     setInterval(async () => {
       try {
         const rand = Math.random();
