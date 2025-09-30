@@ -149,12 +149,15 @@ class TwitterClient {
 
   // Monitor Vitalik's posts and respond
   startVitalikMonitoring() {
-    console.log('⚠️ Vitalik monitoring DISABLED due to Twitter API read limits (100/month)');
-    return; // Disabled completely due to read limits
+    if (!this.config.replyToVitalik) return;
 
-    // Check Vitalik's posts every 15 minutes (rate limit: 1500/15min)
+    // HEAVILY LIMITED: Check Vitalik once per day due to 100 reads/month limit
     setInterval(async () => {
       try {
+        if (!this.rateLimiter.canRead('vitalik')) {
+          console.log('⏸️ Skipping Vitalik check due to read limits');
+          return;
+        }
         await this.checkVitalikPosts();
       } catch (error) {
         if (error.code === 429) {
@@ -163,9 +166,9 @@ class TwitterClient {
           console.error('❌ Error checking Vitalik posts:', error.message);
         }
       }
-    }, 15 * 60 * 1000);
+    }, 24 * 60 * 60 * 1000); // Once per day
 
-    console.log('👨‍💻 Vitalik monitoring started');
+    console.log('👨‍💻 Vitalik monitoring started (once daily due to API limits)');
   }
 
   // Generate trending/relevant content
@@ -202,12 +205,15 @@ class TwitterClient {
 
   async checkVitalikPosts() {
     try {
-      // Get Vitalik's recent tweets (last 10 minutes)
+      // Get Vitalik's recent tweets (limited due to API quotas)
       const vitalikTweets = await this.readWriteClient.v2.userTimeline(this.vitalikUserId, {
         max_results: 5,
         'tweet.fields': ['created_at', 'text', 'public_metrics'],
         exclude: ['retweets', 'replies']
       });
+
+      // Record the API read
+      this.rateLimiter.recordRead('vitalik');
 
       // Validate Vitalik tweets response structure
       if (!vitalikTweets || !vitalikTweets.data || !Array.isArray(vitalikTweets.data)) {
