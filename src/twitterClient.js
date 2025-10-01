@@ -22,6 +22,10 @@ class TwitterClient {
     this.priceClient = new PriceClient();
     this.ideogramClient = new IdeogramClient();
     this.rateLimiter = new TwitterRateLimiter();
+    
+    // Content tracking for smart distribution
+    this.lastPriceUpdate = 0; // Track last price update timestamp
+    this.dailyContentTypes = []; // Track content types used today
 
     // Configuration from environment
     this.config = {
@@ -103,17 +107,27 @@ class TwitterClient {
           return;
         }
         
-        const rand = Math.random();
+        // Smart content distribution - educational focus
+        const contentType = this.selectContentType();
         
-        if (rand < 0.4 && this.config.autoMemeTweets) {
-          // 40% chance: Post meme (if enabled)
-          await this.postAutomaticMeme();
-        } else if (rand < 0.7 && this.config.priceUpdates) {
-          // 30% chance: Engaging price update with context (with API validation)
-          await this.postEngagingPriceUpdate();
-        } else if (this.config.marketUpdates) {
-          // 30% chance: Relevant market insight with discussion starter (with API validation)
-          await this.postRelevantInsight();
+        switch(contentType) {
+          case 'price':
+            await this.postDailyPriceUpdate();
+            break;
+          case 'technical':
+            await this.postTechnicalInsight();
+            break;
+          case 'ecosystem':
+            await this.postEcosystemUpdate();
+            break;
+          case 'education':
+            await this.postEducationalContent();
+            break;
+          case 'future':
+            await this.postFutureVision();
+            break;
+          default:
+            await this.postTechnicalInsight();
         }
       } catch (error) {
         console.error('❌ Error in automated tweet:', error);
@@ -512,6 +526,270 @@ class TwitterClient {
       }
     } catch (error) {
       console.error('❌ Error posting general insight:', error);
+    }
+  }
+
+  // Smart content type selection
+  selectContentType() {
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    
+    // Reset daily content tracking if it's a new day
+    const today = new Date().toDateString();
+    const lastUpdateDay = new Date(this.lastPriceUpdate).toDateString();
+    if (today !== lastUpdateDay) {
+      this.dailyContentTypes = [];
+    }
+    
+    // Price update: Only once per day
+    if (now - this.lastPriceUpdate > twentyFourHours && !this.dailyContentTypes.includes('price')) {
+      return 'price';
+    }
+    
+    // Distribute other content types evenly
+    const contentTypes = ['technical', 'ecosystem', 'education', 'future'];
+    const availableTypes = contentTypes.filter(type => !this.dailyContentTypes.includes(type));
+    
+    if (availableTypes.length === 0) {
+      // Reset if all types used, pick random
+      this.dailyContentTypes = [];
+      return contentTypes[Math.floor(Math.random() * contentTypes.length)];
+    }
+    
+    return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+  }
+
+  // Daily price update with deep context
+  async postDailyPriceUpdate() {
+    try {
+      console.log('💰 Posting daily ETH price update with analysis...');
+      const ethPrice = await this.priceClient.getPrice('ethereum');
+      
+      if (ethPrice && ethPrice.price && !isNaN(parseFloat(ethPrice.price))) {
+        const change = parseFloat(ethPrice.change24h);
+        const context = change > 5 ? 'major rally' : change > 0 ? 'bullish momentum' : change > -5 ? 'consolidation' : 'correction territory';
+        
+        const prompt = `Create a comprehensive ETH analysis tweet. Current price: $${ethPrice.price}, 24h change: ${ethPrice.change24h}%. Context: ${context}. Include: 1) Technical perspective 2) What this means for DeFi ecosystem 3) Upcoming catalysts or concerns 4) Historical comparison. Be analytical but engaging. Max 200 chars before price data.`;
+        
+        const analysis = await this.grokClient.generateResponse(prompt);
+        const finalTweet = `${analysis}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #DeFi #Analysis`;
+        
+        console.log(`📏 Tweet length: ${finalTweet.length}/280 characters`);
+        
+        if (finalTweet.length <= 280) {
+          const result = await this.readWriteClient.v2.tweet({ text: finalTweet });
+          this.rateLimiter.recordTweet('daily_price');
+          this.lastPriceUpdate = Date.now();
+          this.dailyContentTypes.push('price');
+          console.log('✅ Posted daily price analysis to Twitter');
+          console.log(`🐦 Tweet ID: ${result.data.id}`);
+        } else {
+          const truncatedContent = this.smartTruncate(analysis, 180);
+          const truncatedTweet = `${truncatedContent}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #Analysis`;
+          
+          const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+          this.rateLimiter.recordTweet('daily_price');
+          this.lastPriceUpdate = Date.now();
+          this.dailyContentTypes.push('price');
+          console.log('✅ Posted truncated daily price analysis to Twitter');
+          console.log(`🐦 Tweet ID: ${result.data.id}`);
+        }
+      } else {
+        // Fallback to technical insight if price unavailable
+        await this.postTechnicalInsight();
+      }
+    } catch (error) {
+      console.error('❌ Error posting daily price update:', error);
+      // Fallback to educational content
+      await this.postEducationalContent();
+    }
+  }
+
+  // Technical insights about Ethereum's architecture
+  async postTechnicalInsight() {
+    try {
+      console.log('🔧 Posting technical Ethereum insight...');
+      
+      const topics = [
+        'Ethereum Virtual Machine (EVM) and its role in smart contract execution',
+        'Proof of Stake consensus mechanism and validator economics',
+        'Gas optimization techniques and why they matter for users',
+        'Layer 2 scaling solutions: Optimistic vs ZK rollups comparison',
+        'MEV (Maximal Extractable Value) and its impact on transaction ordering',
+        'Account abstraction and how it will change wallet UX',
+        'The merge to PoS and its environmental impact reduction',
+        'Ethereum\'s roadmap: sharding, statelessness, and the endgame',
+        'Smart contract composability: the "money legos" concept',
+        'Ethereum Name Service (ENS) as decentralized identity infrastructure',
+        'EIP-1559 and how it changed Ethereum\'s fee market forever',
+        'Cross-chain bridges: risks, benefits, and the multi-chain future'
+      ];
+      
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      const prompt = `Write an insightful Twitter thread starter about: ${topic}. Make it accessible yet technical. Include a thought-provoking question or controversial take. Explain WHY this matters for Ethereum's future. Be engaging and educational. Max 240 chars.`;
+      
+      const insight = await this.grokClient.generateResponse(prompt);
+      const tweetText = `${insight}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Blockchain #Tech`;
+      
+      if (tweetText.length <= 280) {
+        const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+        this.rateLimiter.recordTweet('technical');
+        this.dailyContentTypes.push('technical');
+        console.log('✅ Posted technical insight to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      } else {
+        const truncatedContent = this.smartTruncate(insight, 240);
+        const truncatedTweet = `${truncatedContent}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Tech`;
+        
+        const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+        this.rateLimiter.recordTweet('technical');
+        this.dailyContentTypes.push('technical');
+        console.log('✅ Posted truncated technical insight to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error posting technical insight:', error);
+    }
+  }
+
+  // Ethereum ecosystem updates and project spotlights
+  async postEcosystemUpdate() {
+    try {
+      console.log('🌐 Posting Ethereum ecosystem update...');
+      
+      const topics = [
+        'DeFi protocol innovations and total value locked (TVL) trends',
+        'NFT marketplaces evolving beyond art: utility and programmability',
+        'DAOs governance models and their real-world impact',
+        'Ethereum-based social media: decentralized alternatives emerging',
+        'Institutional adoption: major corporations building on Ethereum',
+        'Developer tooling improvements: making Web3 development easier',
+        'Ethereum ETF implications for mainstream crypto adoption',
+        'Gaming on Ethereum: play-to-earn and NFT integration',
+        'Real World Assets (RWA) tokenization on Ethereum',
+        'Privacy solutions: zk-SNARKs and private transactions',
+        'Carbon negative Ethereum: environmental initiatives post-merge',
+        'Ethereum in developing economies: financial inclusion stories'
+      ];
+      
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      const prompt = `Create an engaging tweet about: ${topic}. Focus on recent developments, real impact, and future implications. Include specific examples or data points when possible. Make it informative but conversational. Ask a question to drive engagement. Max 240 chars.`;
+      
+      const update = await this.grokClient.generateResponse(prompt);
+      const tweetText = `${update}\n\n💭 What's your take?\n\n#Ethereum #Web3 #DeFi`;
+      
+      if (tweetText.length <= 280) {
+        const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+        this.rateLimiter.recordTweet('ecosystem');
+        this.dailyContentTypes.push('ecosystem');
+        console.log('✅ Posted ecosystem update to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      } else {
+        const truncatedContent = this.smartTruncate(update, 240);
+        const truncatedTweet = `${truncatedContent}\n\n💭 Your take?\n\n#Ethereum #Web3`;
+        
+        const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+        this.rateLimiter.recordTweet('ecosystem');
+        this.dailyContentTypes.push('ecosystem');
+        console.log('✅ Posted truncated ecosystem update to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error posting ecosystem update:', error);
+    }
+  }
+
+  // Educational content for newcomers
+  async postEducationalContent() {
+    try {
+      console.log('📚 Posting educational Ethereum content...');
+      
+      const topics = [
+        'What makes Ethereum different from Bitcoin? Programmable money explained',
+        'Smart contracts 101: How code becomes law on the blockchain',
+        'Gas fees demystified: Why transactions cost what they do',
+        'Wallet security basics: Seed phrases, private keys, and best practices',
+        'DeFi explained: Traditional finance vs decentralized alternatives',
+        'NFTs beyond art: Utility, membership, and digital ownership',
+        'Staking Ethereum: How to earn rewards and secure the network',
+        'Layer 2 solutions: Faster, cheaper transactions explained simply',
+        'Decentralization vs centralization: Why it matters for your money',
+        'Blockchain trilemma: Security, scalability, and decentralization trade-offs',
+        'Web3 vs Web2: What changes when users own their data',
+        'Cryptocurrency volatility: Understanding market cycles and psychology'
+      ];
+      
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      const prompt = `Write an educational tweet about: ${topic}. Make it beginner-friendly but not dumbed down. Use analogies or real-world examples. End with an actionable tip or interesting fact. Be encouraging to newcomers. Max 240 chars.`;
+      
+      const education = await this.grokClient.generateResponse(prompt);
+      const tweetText = `${education}\n\n📖 Learn more 👇\n\n#LearnEthereum #Web3Education #Crypto`;
+      
+      if (tweetText.length <= 280) {
+        const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+        this.rateLimiter.recordTweet('education');
+        this.dailyContentTypes.push('education');
+        console.log('✅ Posted educational content to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      } else {
+        const truncatedContent = this.smartTruncate(education, 240);
+        const truncatedTweet = `${truncatedContent}\n\n📖 More 👇\n\n#Ethereum #Education`;
+        
+        const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+        this.rateLimiter.recordTweet('education');
+        this.dailyContentTypes.push('education');
+        console.log('✅ Posted truncated educational content to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error posting educational content:', error);
+    }
+  }
+
+  // Future vision and predictions
+  async postFutureVision() {
+    try {
+      console.log('🔮 Posting Ethereum future vision...');
+      
+      const topics = [
+        'Ethereum in 2030: What will the ecosystem look like?',
+        'Mass adoption scenarios: When will your grandmother use DeFi?',
+        'The flippening: Ethereum market cap vs Bitcoin predictions',
+        'Quantum computing threats to blockchain: How Ethereum is preparing',
+        'Global CBDC landscape: How will they interact with Ethereum?',
+        'The metaverse economy: Ethereum as the backbone of virtual worlds',
+        'AI meets blockchain: Smart contracts that learn and adapt',
+        'Carbon neutrality: Ethereum leading the green blockchain revolution',
+        'Financial inclusion: Ethereum banking the unbanked globally',
+        'Regulation predictions: How governments will embrace or restrict ETH',
+        'Ethereum as world computer: Running the internet\'s backend',
+        'Post-scarcity economics: What happens when everything is tokenized?'
+      ];
+      
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      const prompt = `Write a thought-provoking tweet about: ${topic}. Be optimistic but realistic. Include a bold prediction or controversial opinion. Make people think about the bigger picture. Reference current trends leading to this future. Max 240 chars.`;
+      
+      const vision = await this.grokClient.generateResponse(prompt);
+      const tweetText = `${vision}\n\n🚀 Bold take?\n\n#EthereumFuture #Web3 #Innovation`;
+      
+      if (tweetText.length <= 280) {
+        const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+        this.rateLimiter.recordTweet('future');
+        this.dailyContentTypes.push('future');
+        console.log('✅ Posted future vision to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      } else {
+        const truncatedContent = this.smartTruncate(vision, 240);
+        const truncatedTweet = `${truncatedContent}\n\n🚀 Agree?\n\n#Ethereum #Future`;
+        
+        const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
+        this.rateLimiter.recordTweet('future');
+        this.dailyContentTypes.push('future');
+        console.log('✅ Posted truncated future vision to Twitter');
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error posting future vision:', error);
     }
   }
 
