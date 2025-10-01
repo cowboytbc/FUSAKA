@@ -161,25 +161,58 @@ class IdeogramClient {
     return `${originalPrompt}, use the character reference images provided, male characters only, maintain character appearance from reference images`;
   }
 
-  // Generate character-based memes with weighted selection
+  // Generate character-based memes with FUSAKA characters
   async generateCharacterMeme(character, situation, cryptoContext = '') {
-    // If user just says "random" or doesn't specify, use 50/50 selection between characters
-    if (character.toLowerCase() === 'random' || character.toLowerCase() === 'any') {
-      const rand = Math.random();
-      character = rand < 0.5 ? 'character1' : 'character2';
-    }
-
-    // Use reference images + explicit gender specification
-    // The reference images will define the character appearance, but we'll reinforce gender
+    let characterType = 'auto'; // Default for reference image selection
+    let characterDescription = '';
     
-    // Explicit prompt to use the character reference images
-    let prompt = `${situation}, use character reference images exactly as shown, male characters, same faces from reference images`;
+    // Map character names to descriptions and reference types
+    switch(character.toLowerCase()) {
+      case 'fusaka_fox':
+      case 'fusaka fox':
+        characterType = 'character1'; // Fox is character 1
+        characterDescription = 'FUSAKA Fox (cute anthropomorphic male fox character with light blue fur and white underbelly, large expressive bright blue eyes, triangular ears with pink inner parts, dark blue V-shaped forehead marking, fluffy white neck mane with jagged edges, small black nose, friendly smile, chibi-style proportions with large head, short rounded limbs with white paw pads, large fluffy tail that fades from light blue to white tip with spiky tufts, clean digital cartoon anime aesthetic with bold outlines and vibrant colors)';
+        break;
+        
+      case 'fusaka_zebra':
+      case 'fusaka zebra':
+        characterType = 'character2'; // Zebra is character 2
+        characterDescription = 'FUSAKA Zebra (anthropomorphic male zebra character with white base fur and bold black stripes with smooth pointed edges, large rounded head with short black muzzle, diamond-shaped black forehead marking pointing downward, large golden yellow eyes with black outlines, triangular ears with pink inner sections, short fluffy black mane spiking backward, bright blue triangular bandana around neck, chibi-style proportions with large head and simplified body, thick rounded legs ending in solid black hooves, short striped tail with black tuft, clean digital cartoon anime aesthetic with bold outlines and polished finish)';
+        break;
+        
+      case 'both':
+      case 'together':
+        characterType = 'auto'; // Use both reference folders
+        characterDescription = 'FUSAKA Fox and FUSAKA Zebra (both male characters)';
+        break;
+        
+      case 'random':
+      default:
+        // Random selection between fox, zebra, or both
+        const rand = Math.random();
+        if (rand < 0.4) {
+          characterType = 'character1';
+          characterDescription = 'FUSAKA Fox (cute anthropomorphic male fox character with light blue fur and white underbelly, large expressive bright blue eyes, triangular ears with pink inner parts, dark blue V-shaped forehead marking, fluffy white neck mane with jagged edges, small black nose, friendly smile, chibi-style proportions with large head, short rounded limbs with white paw pads, large fluffy tail that fades from light blue to white tip with spiky tufts, clean digital cartoon anime aesthetic with bold outlines and vibrant colors)';
+        } else if (rand < 0.8) {
+          characterType = 'character2';
+          characterDescription = 'FUSAKA Zebra (anthropomorphic male zebra character with white base fur and bold black stripes, large golden yellow eyes, diamond-shaped black forehead marking, short fluffy black mane, bright blue triangular bandana around neck, chibi-style proportions, thick legs with black hooves, clean digital cartoon anime aesthetic)';
+        } else {
+          characterType = 'auto';
+          characterDescription = 'FUSAKA Fox (cute anthropomorphic male fox with light blue fur, bright blue eyes, dark blue V-marking, fluffy white neck mane, chibi-style) and FUSAKA Zebra (anthropomorphic male zebra with white fur and black stripes, golden yellow eyes, diamond-shaped black forehead marking, blue bandana, black hooves, chibi-style)';
+        }
+        break;
+    }
+    
+    // Build comprehensive prompt with character descriptions
+    let prompt = `${characterDescription} ${situation}, use provided character reference images exactly as shown, maintain character appearance from reference images, male characters only`;
     
     if (cryptoContext) {
-      prompt += ` ${cryptoContext}`;
+      prompt += `, ${cryptoContext}`;
     }
 
-    return await this.generateMeme(prompt, 'meme', character);
+    console.log(`🎨 Generating meme - Character: ${characterDescription}, Situation: ${situation}`);
+    
+    return await this.generateMeme(prompt, 'meme', characterType);
   }
 
   // Get weighted character recommendation

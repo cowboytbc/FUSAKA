@@ -26,6 +26,8 @@ class TwitterClient {
     // Content tracking for smart distribution
     this.lastPriceUpdate = 0; // Track last price update timestamp
     this.dailyContentTypes = []; // Track content types used today
+    this.recentTweets = []; // Track recent tweets for reply monitoring
+    this.tweetReplyCounts = new Map(); // Track reply counts per tweet
 
     // Configuration from environment
     this.config = {
@@ -73,6 +75,7 @@ class TwitterClient {
       this.startAutomatedTweets();
       this.startMentionMonitoring();
       this.startVitalikMonitoring();
+      this.startReplyMonitoring();
 
       console.log('🐦 Twitter bot started successfully!');
       return true;
@@ -92,7 +95,7 @@ class TwitterClient {
     setTimeout(async () => {
       try {
         console.log('🚀 Posting initial startup tweet...');
-        await this.postEngagingPriceUpdate();
+        await this.postEducationalContent();
         console.log('✅ Initial startup tweet posted successfully!');
       } catch (error) {
         console.error('❌ Error posting initial tweet:', error);
@@ -183,6 +186,148 @@ class TwitterClient {
     }, 24 * 60 * 60 * 1000); // Once per day
 
     console.log('👨‍💻 Vitalik monitoring started (once daily due to API limits)');
+  }
+
+  // Monitor replies to our own tweets and respond to up to 3 per tweet
+  startReplyMonitoring() {
+    // Check for replies every 6 hours to stay within API limits
+    setInterval(async () => {
+      try {
+        if (!this.rateLimiter.canRead('replies')) {
+          console.log('⏸️ Skipping reply check due to read limits');
+          return;
+        }
+        await this.checkAndReplyToComments();
+      } catch (error) {
+        if (error.code === 429) {
+          console.log('⏳ Rate limited on reply checks - waiting...');
+        } else {
+          console.error('❌ Error checking replies:', error.message);
+        }
+      }
+    }, 6 * 60 * 60 * 1000); // Every 6 hours
+
+    console.log('💬 Reply monitoring started (every 6 hours due to API limits)');
+  }
+
+  // Check and respond to comments on our tweets
+  async checkAndReplyToComments() {
+    try {
+      console.log('💬 Checking for replies to our tweets...');
+
+      // Get our recent tweets (last 24 hours) to check for replies
+      const me = await this.readWriteClient.currentUser();
+      let userId;
+      
+      if (me.data?.id) {
+        userId = me.data.id;
+      } else if (me.id_str) {
+        userId = me.id_str;
+      } else {
+        console.log('❌ Could not get user ID for reply monitoring');
+        return;
+      }
+
+      // Get our recent tweets
+      const tweets = await this.readWriteClient.v2.userTimeline(userId, {
+        max_results: 10,
+        'tweet.fields': ['created_at', 'public_metrics', 'conversation_id'],
+        exclude: ['retweets', 'replies']
+      });
+
+      if (!tweets.data) {
+        console.log('📭 No recent tweets found');
+        return;
+      }
+
+      // Check each tweet for replies
+      for (const tweet of tweets.data) {
+        const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        
+        // Only check tweets from last 24 hours
+        if (tweetAge > twentyFourHours) continue;
+
+        // Skip if we already replied 3 times to this tweet
+        const replyCount = this.tweetReplyCounts.get(tweet.id) || 0;
+        if (replyCount >= 3) {
+          console.log(`⏭️ Already replied 3 times to tweet ${tweet.id}`);
+          continue;
+        }
+
+        // Search for replies to this tweet
+        const searchQuery = `conversation_id:${tweet.conversation_id} -from:${this.username}`;
+        
+        try {
+          const replies = await this.readWriteClient.v2.search(searchQuery, {
+            max_results: 10,
+            'tweet.fields': ['created_at', 'author_id', 'conversation_id'],
+            'user.fields': ['username']
+          });
+
+          if (replies.data) {
+            // Filter out replies we've already responded to and limit to 3 new ones
+            const newReplies = replies.data.filter(reply => {
+              const replyAge = Date.now() - new Date(reply.created_at).getTime();
+              return replyAge < twentyFourHours && reply.author_id !== userId;
+            }).slice(0, 3 - replyCount);
+
+            // Respond to new replies
+            for (const reply of newReplies) {
+              if (replyCount >= 3) break;
+
+              try {
+                console.log(`💬 Responding to reply: ${reply.text}`);
+
+                const prompt = `Someone replied to our Twitter post saying: "${reply.text}"\n\nReply as FUSAKAAI with helpful crypto insights. Be engaging, educational, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or blockchain technology.`;
+                
+                const response = await this.grokClient.generateResponse(prompt);
+                const finalResponse = this.truncateToFit(response, 240);
+
+                await this.readWriteClient.v2.reply(finalResponse, reply.id);
+                
+                // Update reply count
+                this.tweetReplyCounts.set(tweet.id, replyCount + 1);
+                
+                console.log(`✅ Replied to comment on tweet ${tweet.id}`);
+                
+                // Record the operation for rate limiting
+                this.rateLimiter.recordTweet('reply');
+
+                // Wait between replies to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+              } catch (replyError) {
+                console.error('❌ Error replying to comment:', replyError.message);
+              }
+            }
+          }
+        } catch (searchError) {
+          console.log(`⚠️ Could not search replies for tweet ${tweet.id}:`, searchError.message);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error in reply monitoring:', error);
+      this.rateLimiter.recordRead('replies');
+    }
+  }
+
+  // Track our tweets for reply monitoring
+  trackTweet(tweetId) {
+    if (tweetId) {
+      this.recentTweets.push({
+        id: tweetId,
+        timestamp: Date.now()
+      });
+      
+      // Keep only last 50 tweets to prevent memory bloat
+      if (this.recentTweets.length > 50) {
+        this.recentTweets = this.recentTweets.slice(-50);
+      }
+      
+      console.log(`📝 Tracking tweet ${tweetId} for reply monitoring`);
+    }
   }
 
   // Generate trending/relevant content
@@ -581,6 +726,7 @@ class TwitterClient {
           this.rateLimiter.recordTweet('daily_price');
           this.lastPriceUpdate = Date.now();
           this.dailyContentTypes.push('price');
+          this.trackTweet(result.data.id);
           console.log('✅ Posted daily price analysis to Twitter');
           console.log(`🐦 Tweet ID: ${result.data.id}`);
         } else {
@@ -590,6 +736,7 @@ class TwitterClient {
           const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
           this.rateLimiter.recordTweet('daily_price');
           this.lastPriceUpdate = Date.now();
+          this.trackTweet(result.data.id);
           this.dailyContentTypes.push('price');
           console.log('✅ Posted truncated daily price analysis to Twitter');
           console.log(`🐦 Tweet ID: ${result.data.id}`);
@@ -635,6 +782,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
         this.rateLimiter.recordTweet('technical');
         this.dailyContentTypes.push('technical');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted technical insight to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
@@ -644,6 +792,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('technical');
         this.dailyContentTypes.push('technical');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted truncated technical insight to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       }
@@ -682,6 +831,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
         this.rateLimiter.recordTweet('ecosystem');
         this.dailyContentTypes.push('ecosystem');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted ecosystem update to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
@@ -691,6 +841,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('ecosystem');
         this.dailyContentTypes.push('ecosystem');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted truncated ecosystem update to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       }
@@ -729,6 +880,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
         this.rateLimiter.recordTweet('education');
         this.dailyContentTypes.push('education');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted educational content to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
@@ -738,6 +890,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('education');
         this.dailyContentTypes.push('education');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted truncated educational content to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       }
@@ -776,6 +929,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
         this.rateLimiter.recordTweet('future');
         this.dailyContentTypes.push('future');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted future vision to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
@@ -785,6 +939,7 @@ class TwitterClient {
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('future');
         this.dailyContentTypes.push('future');
+        this.trackTweet(result.data.id);
         console.log('✅ Posted truncated future vision to Twitter');
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       }

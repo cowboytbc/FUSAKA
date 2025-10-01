@@ -115,7 +115,7 @@ class TelegramClient {
       { command: 'price', description: 'Get real-time price data for any cryptocurrency' },
       { command: 'eth', description: 'Get Ethereum price with Fusaka upgrade insights' },
       { command: 'trending', description: 'See top trending cryptocurrencies' },
-      { command: 'meme', description: '🎨 Generate crypto memes with AI (e.g., /meme vitalik happy)' }
+      { command: 'meme', description: '🎨 Generate crypto memes with AI (e.g., /meme fusaka fox happy)' }
     ]).catch(console.error);
 
     // Handle /ask command
@@ -357,8 +357,8 @@ I represent the FUSAKA token community and I'm deeply trained in ALL things Ethe
 • \`/ask How does the EVM execute smart contracts?\`
 • \`/ask Explain zero-knowledge proofs in detail\`
 • \`/ask What are the best DeFi protocols right now?\`
-• \`/meme vitalik celebrating\` - Generate Vitalik meme
-• \`/meme wojak diamond hands\` - Create diamond hands meme
+• \`/meme fusaka fox celebrating\` - Generate Fusaka Fox meme
+• \`/meme fusaka zebra diamond hands\` - Create Fusaka Zebra meme
 • \`/fusaka\` to check our token and contract details!
 
 Join our community celebrating both cutting-edge tech AND the memecoin revolution! 🚀💎`;
@@ -375,19 +375,18 @@ Join our community celebrating both cutting-edge tech AND the memecoin revolutio
       try {
         if (!memeInput) {
           await this.bot.sendMessage(chatId, 
-            "🎨 **Meme Generator Help**\n\n" +
-            "**Usage:** `/meme [situation]`\n\n" +
-            "**How it works:**\n" +
-            "• 50% chance - Both FUSAKA characters together\n" +
-            "• 32.5% chance - Main character solo\n" +
-            "• 17.5% chance - Secondary character solo\n" +
-            "• Automatic smart selection!\n\n" +
+            "🎨 **FUSAKA Meme Generator**\n\n" +
+            "**Usage:** `/meme [character] [situation]`\n\n" +
+            "**Characters:**\n" +
+            "🦊 `fusaka fox` - The clever FUSAKA Fox\n" +
+            "🦓 `fusaka zebra` - The wise FUSAKA Zebra\n" +
+            "🎲 `random` - Let AI choose character(s)\n\n" +
             "**Examples:**\n" +
-            "• `/meme celebrating FUSAKA launch`\n" +
-            "• `/meme diamond hands forever`\n" +
-            "• `/meme rocket to the moon`\n" +
-            "• `/meme happy about gains`\n" +
-            "• `/meme hodling through the dip`",
+            "• `/meme fusaka fox celebrating`\n" +
+            "• `/meme fusaka zebra diamond hands`\n" +
+            "• `/meme fusaka fox arm wrestling fusaka zebra`\n" +
+            "• `/meme random rocket to moon`\n" +
+            "• `/meme both characters high five`",
             { 
               reply_to_message_id: msg.message_id,
               parse_mode: 'Markdown'
@@ -400,18 +399,20 @@ Join our community celebrating both cutting-edge tech AND the memecoin revolutio
         
         // Send "generating" message
         const generatingMsg = await this.bot.sendMessage(chatId, 
-          "🎨 Generating your meme... This might take 30-60 seconds! ⏳",
+          "🎨 Generating your FUSAKA meme... This might take 30-60 seconds! ⏳",
           { reply_to_message_id: msg.message_id }
         );
 
-        // Use the entire input as situation, let AI choose characters automatically
-        const situation = memeInput || 'crypto trading';
+        // Parse character and situation from input
+        const { character, situation } = this.parseMemeCommand(memeInput);
+        
+        console.log(`🎯 Parsed - Character: "${character}", Situation: "${situation}"`);
 
-        // Generate meme with automatic weighted character selection
+        // Generate meme with parsed character and situation
         const result = await this.ideogramClient.generateCharacterMeme(
-          'random', // Always use weighted selection
+          character,
           situation, 
-          'FUSAKA and Ethereum'
+          'FUSAKA crypto project'
         );
 
         if (result.success) {
@@ -557,6 +558,59 @@ Current context: Today is ${new Date().toLocaleDateString('en-US')}`;
     } catch (error) {
       console.error('❌ Error initializing character references:', error.message);
       console.log('📝 Falling back to text-based character descriptions');
+    }
+  }
+
+  // Parse meme command to extract character and situation
+  parseMemeCommand(input) {
+    if (!input) {
+      return { character: 'random', situation: 'crypto trading' };
+    }
+
+    const lowerInput = input.toLowerCase().trim();
+    
+    // Check for specific character mentions
+    if (lowerInput.includes('fusaka fox') && lowerInput.includes('fusaka zebra')) {
+      // Both characters mentioned
+      const situation = input.replace(/fusaka fox|fusaka zebra/gi, '').trim();
+      return { 
+        character: 'both', 
+        situation: situation || 'interacting together' 
+      };
+    } else if (lowerInput.includes('fusaka fox')) {
+      // Fox only
+      const situation = input.replace(/fusaka fox/gi, '').trim();
+      return { 
+        character: 'fusaka_fox', 
+        situation: situation || 'doing something cool' 
+      };
+    } else if (lowerInput.includes('fusaka zebra')) {
+      // Zebra only
+      const situation = input.replace(/fusaka zebra/gi, '').trim();
+      return { 
+        character: 'fusaka_zebra', 
+        situation: situation || 'being awesome' 
+      };
+    } else if (lowerInput.startsWith('both') || lowerInput.includes('together')) {
+      // Both characters requested
+      const situation = input.replace(/both|together/gi, '').trim();
+      return { 
+        character: 'both', 
+        situation: situation || 'working together' 
+      };
+    } else if (lowerInput === 'random' || lowerInput.startsWith('random')) {
+      // Random character selection
+      const situation = input.replace(/random/gi, '').trim();
+      return { 
+        character: 'random', 
+        situation: situation || 'crypto adventure' 
+      };
+    } else {
+      // No specific character mentioned, use whole input as situation with random character
+      return { 
+        character: 'random', 
+        situation: input 
+      };
     }
   }
 
