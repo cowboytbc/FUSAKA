@@ -1,13 +1,13 @@
 class TwitterRateLimiter {
   constructor() {
-    this.monthlyLimit = 500; // Twitter free tier write limit
-    this.monthlyReadLimit = 100; // Twitter free tier read limit
+    this.monthlyLimit = 10000; // Twitter Basic plan write limit
+    this.monthlyReadLimit = 100000; // Twitter Basic plan read limit
     this.currentMonth = new Date().getMonth();
     this.currentYear = new Date().getFullYear();
     this.tweetsThisMonth = 0;
     this.readsThisMonth = 0;
-    this.dailyLimit = Math.floor(this.monthlyLimit / 30); // ~16 tweets per day
-    this.dailyReadLimit = Math.floor(this.monthlyReadLimit / 30); // ~3 reads per day
+    this.dailyLimit = Math.floor(this.monthlyLimit / 30); // ~333 tweets per day
+    this.dailyReadLimit = Math.floor(this.monthlyReadLimit / 30); // ~3,333 reads per day
     this.tweetsToday = 0;
     this.readsToday = 0;
     this.currentDay = new Date().getDate();

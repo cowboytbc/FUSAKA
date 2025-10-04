@@ -144,7 +144,7 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // HEAVILY LIMITED: Check mentions every 8 hours due to 100 reads/month limit
+    // Check mentions every 30 minutes with Basic plan limits
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('mentions')) {
@@ -159,16 +159,28 @@ class TwitterClient {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 8 * 60 * 60 * 1000); // 8 hours (3 times per day max)
+    }, 30 * 60 * 1000); // 30 minutes for excellent responsiveness
 
-    console.log('👂 Mention monitoring started (every 8 hours due to API limits)');
+    console.log('👂 Mention monitoring started (every 30 minutes - Basic plan)');
+    
+    // Check mentions immediately on startup (after 15 seconds)
+    setTimeout(async () => {
+      try {
+        if (this.rateLimiter.canRead('mentions')) {
+          console.log('🔄 Checking for mentions on startup...');
+          await this.checkAndReplyToMentions();
+        }
+      } catch (error) {
+        console.error('❌ Error in startup mention check:', error.message);
+      }
+    }, 15000); // 15 seconds after startup
   }
 
   // Monitor Vitalik's posts and respond
   startVitalikMonitoring() {
     if (!this.config.replyToVitalik) return;
 
-    // HEAVILY LIMITED: Check Vitalik once per day due to 100 reads/month limit
+    // Check Vitalik every 6 hours with Basic plan limits
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('vitalik')) {
@@ -183,14 +195,14 @@ class TwitterClient {
           console.error('❌ Error checking Vitalik posts:', error.message);
         }
       }
-    }, 24 * 60 * 60 * 1000); // Once per day
+    }, 6 * 60 * 60 * 1000); // Every 6 hours
 
-    console.log('👨‍💻 Vitalik monitoring started (once daily due to API limits)');
+    console.log('👨‍💻 Vitalik monitoring started (every 6 hours - Basic plan)');
   }
 
   // Monitor replies to our own tweets and respond to up to 3 per tweet
   startReplyMonitoring() {
-    // Check for replies every 6 hours to stay within API limits
+    // Check for replies every 2 hours with Basic plan limits
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('replies')) {
@@ -205,9 +217,9 @@ class TwitterClient {
           console.error('❌ Error checking replies:', error.message);
         }
       }
-    }, 6 * 60 * 60 * 1000); // Every 6 hours
+    }, 2 * 60 * 60 * 1000); // Every 2 hours
 
-    console.log('💬 Reply monitoring started (every 6 hours due to API limits)');
+    console.log('💬 Reply monitoring started (every 2 hours - Basic plan)');
   }
 
   // Check and respond to comments on our tweets
@@ -593,12 +605,15 @@ class TwitterClient {
 
   async checkAndReplyToMentions() {
     try {
+      console.log('🔍 Checking for recent mentions...');
+      
       // Get recent mentions (limited due to API quotas)
       const mentions = await this.readWriteClient.v2.userMentionTimeline(
         process.env.TWITTER_USER_ID,
         { 
-          max_results: 5,
-          'tweet.fields': ['created_at', 'author_id', 'text']
+          max_results: 20,
+          'tweet.fields': ['created_at', 'author_id', 'text'],
+          'user.fields': ['username']
         }
       );
       
@@ -609,7 +624,9 @@ class TwitterClient {
       if (!mentions || !mentions.data || !Array.isArray(mentions.data)) {
         console.log('📭 No new mentions found');
         return;
-      }      console.log(`📬 Found ${mentions.data.length} recent mentions`);
+      }
+      
+      console.log(`📬 Found ${mentions.data.length} recent mentions`);
 
       // Process mentions with delays to avoid rate limits
       for (let i = 0; i < mentions.data.length; i++) {
@@ -619,23 +636,35 @@ class TwitterClient {
         if (i > 0) {
           await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
         }
-        // Skip if older than 15 minutes
+        // Skip if older than 30 minutes (since we check every 30 minutes)
         const mentionTime = new Date(mention.created_at);
         const now = new Date();
         const diffMinutes = (now - mentionTime) / (1000 * 60);
         
-        if (diffMinutes > 15) continue;
+        if (diffMinutes > 30) {
+          console.log(`⏰ Skipping old mention (${Math.round(diffMinutes)} minutes old)`);
+          continue;
+        }
+
+        console.log(`💬 Processing mention: "${mention.text}"`);
 
         // Generate AI response
-        const prompt = `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters.`;
+        const prompt = `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful crypto insights.`;
         
-        const response = await this.grokClient.generateResponse(prompt);
-        
-        await this.readWriteClient.v2.reply(response, mention.id);
-        console.log(`✅ Replied to mention from ${mention.author_id}`);
-        
-        // Rate limit: wait between replies
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        try {
+          const response = await this.grokClient.generateResponse(prompt);
+          const finalResponse = this.truncateToFit(response, 240);
+          
+          await this.readWriteClient.v2.reply(finalResponse, mention.id);
+          this.rateLimiter.recordTweet('mention_reply');
+          console.log(`✅ Replied to mention from ${mention.author_id}`);
+          
+          // Rate limit: wait between replies
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+        } catch (replyError) {
+          console.error(`❌ Error replying to mention ${mention.id}:`, replyError.message);
+        }
       }
     } catch (error) {
       console.error('❌ Error handling mentions:', error);
