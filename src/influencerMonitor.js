@@ -1,8 +1,9 @@
 class InfluencerMonitor {
-  constructor(twitterClient, grokClient, rateLimiter) {
+  constructor(twitterClient, grokClient, rateLimiter, smartTagger = null) {
     this.twitterClient = twitterClient;
     this.grokClient = grokClient;
     this.rateLimiter = rateLimiter;
+    this.smartTagger = smartTagger;
     
     // Influential crypto accounts with their Twitter IDs and engagement strategies
     this.influencers = new Map([
@@ -12,7 +13,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum, scaling, philosophy, governance',
         responseStyle: 'technical and respectful',
         priority: 'high',
-        maxRepliesPerDay: 2
+        maxRepliesPerDay: 3
       }],
       ['2312333412', { 
         username: 'ethereum', 
@@ -20,7 +21,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum updates, ecosystem news',
         responseStyle: 'supportive and informative',
         priority: 'high',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2
       }],
       ['18060226', { 
         username: 'josephlubin', 
@@ -28,7 +29,7 @@ class InfluencerMonitor {
         expertise: 'ConsenSys, Ethereum ecosystem, Web3',
         responseStyle: 'professional and insightful',
         priority: 'medium',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2
       }],
       ['1515871317448769538', { 
         username: 'sassal0x', 
@@ -36,7 +37,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum research, DeFi, technical analysis',
         responseStyle: 'technical and analytical',
         priority: 'high',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2
       }],
       ['1729808723', { 
         username: 'aantonop', 
@@ -242,7 +243,13 @@ Focus: ${influencer.expertise}
 Be authentic, respectful, and add genuine value to the conversation.`;
 
     try {
-      const response = await this.grokClient.generateResponse(prompt);
+      let response = await this.grokClient.generateResponse(prompt);
+      
+      // Add smart tags for influencer replies if available
+      if (this.smartTagger) {
+        response = this.smartTagger.getInfluencerReplyTags(response, influencer.username);
+      }
+      
       return this.truncateToFit(response, 240);
     } catch (error) {
       console.error('❌ Error generating influencer response:', error);

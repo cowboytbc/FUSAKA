@@ -4,6 +4,7 @@ const PriceClient = require('./priceClient');
 const IdeogramClient = require('./ideogramClient');
 const TwitterRateLimiter = require('./twitterRateLimiter');
 const InfluencerMonitor = require('./influencerMonitor');
+const SmartTaggingSystem = require('./smartTaggingSystem');
 
 class TwitterClient {
   constructor() {
@@ -23,7 +24,8 @@ class TwitterClient {
     this.priceClient = new PriceClient();
     this.ideogramClient = new IdeogramClient();
     this.rateLimiter = new TwitterRateLimiter();
-    this.influencerMonitor = new InfluencerMonitor(this, this.grokClient, this.rateLimiter);
+    this.influencerMonitor = new InfluencerMonitor(this, this.grokClient, this.rateLimiter, this.smartTagger);
+    this.smartTagger = new SmartTaggingSystem();
     
     // Content tracking for smart distribution
     this.lastPriceUpdate = 0; // Track last price update timestamp
@@ -36,7 +38,7 @@ class TwitterClient {
     // Configuration from environment
     this.config = {
       enabled: process.env.TWITTER_ENABLED === 'true',
-      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 240, // minutes
+      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 60, // minutes - Optimized for Basic plan
       replyToMentions: process.env.TWITTER_REPLY_TO_MENTIONS === 'true',
       autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
@@ -116,6 +118,17 @@ class TwitterClient {
           return;
         }
         
+        // Check for market reactions first (high priority)
+        const ethPrice = await this.priceClient.getPrice('ethereum');
+        if (ethPrice && ethPrice.change24h) {
+          const change = parseFloat(ethPrice.change24h);
+          if (Math.abs(change) >= 3) {
+            // Post market reaction for significant movements
+            await this.postMarketReaction(ethPrice);
+            return;
+          }
+        }
+        
         // Smart content distribution - educational focus
         const contentType = this.selectContentType();
         
@@ -150,7 +163,7 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 15 minutes with Basic plan limits for maximum responsiveness
+    // Check mentions every 10 minutes with Basic plan limits for ultra responsiveness
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('mentions')) {
@@ -165,9 +178,9 @@ class TwitterClient {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 15 * 60 * 1000); // 15 minutes for maximum responsiveness
+    }, 10 * 60 * 1000); // 10 minutes for ultra responsiveness
 
-    console.log('👂 Mention monitoring started (every 15 minutes - Maximum responsiveness)');
+    console.log('👂 Mention monitoring started (every 10 minutes - Ultra responsiveness)');
     
     // Check mentions immediately on startup (after 10 seconds)
     setTimeout(async () => {
@@ -757,7 +770,11 @@ class TwitterClient {
           : `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful crypto insights.`;
         
         try {
-          const response = await this.grokClient.generateResponse(prompt);
+          let response = await this.grokClient.generateResponse(prompt);
+          
+          // Add smart tags for mention replies
+          response = this.smartTagger.addTagsToTweet(response, 'mention_reply');
+          
           const finalResponse = this.truncateToFit(response, 240);
           
           await this.readWriteClient.v2.reply(finalResponse, mention.id);
@@ -878,7 +895,10 @@ class TwitterClient {
         const prompt = `Create a comprehensive ETH analysis tweet. Current price: $${ethPrice.price}, 24h change: ${ethPrice.change24h}%. Context: ${context}. Include: 1) Technical perspective 2) What this means for DeFi ecosystem 3) Upcoming catalysts or concerns 4) Historical comparison. Be analytical but engaging. Max 200 chars before price data.`;
         
         const analysis = await this.grokClient.generateResponse(prompt);
-        const finalTweet = `${analysis}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #DeFi #Analysis`;
+        let finalTweet = `${analysis}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #DeFi #Analysis`;
+        
+        // Add smart tags for price analysis
+        finalTweet = this.smartTagger.addTagsToTweet(finalTweet, 'price');
         
         console.log(`📏 Tweet length: ${finalTweet.length}/280 characters`);
         
@@ -892,7 +912,10 @@ class TwitterClient {
           console.log(`🐦 Tweet ID: ${result.data.id}`);
         } else {
           const truncatedContent = this.smartTruncate(analysis, 180);
-          const truncatedTweet = `${truncatedContent}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #Analysis`;
+          let truncatedTweet = `${truncatedContent}\n\n💰 ETH: $${ethPrice.price} | ${change > 0 ? '📈' : '📉'} ${ethPrice.change24h}%\n\n#Ethereum #ETH #Analysis`;
+          
+          // Add smart tags to truncated version
+          truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'price');
           
           const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
           this.rateLimiter.recordTweet('daily_price');
@@ -910,6 +933,40 @@ class TwitterClient {
       console.error('❌ Error posting daily price update:', error);
       // Fallback to educational content
       await this.postEducationalContent();
+    }
+  }
+
+  // Market reaction to significant price movements
+  async postMarketReaction(priceData) {
+    try {
+      const change = parseFloat(priceData.change24h);
+      const absChange = Math.abs(change);
+      
+      // Only react to significant movements (>3%)
+      if (absChange < 3) return;
+      
+      console.log(`💥 Posting market reaction to ${change > 0 ? 'pump' : 'dump'}: ${change}%`);
+      
+      const reactionType = change > 0 ? 'bullish' : 'bearish';
+      const intensity = absChange > 10 ? 'extreme' : absChange > 7 ? 'major' : 'significant';
+      
+      const prompt = `ETH just moved ${change}% in 24h to $${priceData.price}. Write a ${reactionType} market reaction tweet. Context: ${intensity} ${reactionType === 'bullish' ? 'rally' : 'correction'}. Include: 1) What likely triggered this 2) Impact on DeFi/NFTs 3) What to watch next 4) Keep perspective (zoom out). Be insightful, not emotional. Max 220 chars.`;
+      
+      const reaction = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${reaction}\n\n🎢 ETH: $${priceData.price} | ${change > 0 ? '🚀' : '📉'} ${change}%\n\n#Ethereum #MarketUpdate`;
+      
+      // Add smart tags for market reactions
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'price');
+      
+      if (tweetText.length <= 280) {
+        const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+        this.rateLimiter.recordTweet('market_reaction');
+        this.trackTweet(result.data.id);
+        console.log(`✅ Posted ${reactionType} market reaction to Twitter`);
+        console.log(`🐦 Tweet ID: ${result.data.id}`);
+      }
+    } catch (error) {
+      console.error('❌ Error posting market reaction:', error);
     }
   }
 
@@ -937,7 +994,10 @@ class TwitterClient {
       const prompt = `Write an insightful Twitter thread starter about: ${topic}. Make it accessible yet technical. Include a thought-provoking question or controversial take. Explain WHY this matters for Ethereum's future. Be engaging and educational. Max 240 chars.`;
       
       const insight = await this.grokClient.generateResponse(prompt);
-      const tweetText = `${insight}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Blockchain #Tech`;
+      let tweetText = `${insight}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Blockchain #Tech`;
+      
+      // Add smart tags for technical content
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'technical');
       
       if (tweetText.length <= 280) {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
@@ -948,7 +1008,10 @@ class TwitterClient {
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
         const truncatedContent = this.smartTruncate(insight, 240);
-        const truncatedTweet = `${truncatedContent}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Tech`;
+        let truncatedTweet = `${truncatedContent}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Tech`;
+        
+        // Add smart tags to truncated version
+        truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'technical');
         
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('technical');
@@ -986,7 +1049,10 @@ class TwitterClient {
       const prompt = `Create an engaging tweet about: ${topic}. Focus on recent developments, real impact, and future implications. Include specific examples or data points when possible. Make it informative but conversational. Ask a question to drive engagement. Max 240 chars.`;
       
       const update = await this.grokClient.generateResponse(prompt);
-      const tweetText = `${update}\n\n💭 What's your take?\n\n#Ethereum #Web3 #DeFi`;
+      let tweetText = `${update}\n\n💭 What's your take?\n\n#Ethereum #Web3 #DeFi`;
+      
+      // Add smart tags for ecosystem content
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'ecosystem');
       
       if (tweetText.length <= 280) {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
@@ -997,7 +1063,10 @@ class TwitterClient {
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
         const truncatedContent = this.smartTruncate(update, 240);
-        const truncatedTweet = `${truncatedContent}\n\n💭 Your take?\n\n#Ethereum #Web3`;
+        let truncatedTweet = `${truncatedContent}\n\n💭 Your take?\n\n#Ethereum #Web3`;
+        
+        // Add smart tags to truncated version
+        truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'ecosystem');
         
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('ecosystem');
@@ -1035,7 +1104,10 @@ class TwitterClient {
       const prompt = `Write an educational tweet about: ${topic}. Make it beginner-friendly but not dumbed down. Use analogies or real-world examples. End with an actionable tip or interesting fact. Be encouraging to newcomers. Max 240 chars.`;
       
       const education = await this.grokClient.generateResponse(prompt);
-      const tweetText = `${education}\n\n📖 Learn more 👇\n\n#LearnEthereum #Web3Education #Crypto`;
+      let tweetText = `${education}\n\n📖 Learn more 👇\n\n#LearnEthereum #Web3Education #Crypto`;
+      
+      // Add smart tags for educational content
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'education');
       
       if (tweetText.length <= 280) {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
@@ -1046,7 +1118,10 @@ class TwitterClient {
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
         const truncatedContent = this.smartTruncate(education, 240);
-        const truncatedTweet = `${truncatedContent}\n\n📖 More 👇\n\n#Ethereum #Education`;
+        let truncatedTweet = `${truncatedContent}\n\n📖 More 👇\n\n#Ethereum #Education`;
+        
+        // Add smart tags to truncated version
+        truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'education');
         
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('education');
@@ -1084,7 +1159,10 @@ class TwitterClient {
       const prompt = `Write a thought-provoking tweet about: ${topic}. Be optimistic but realistic. Include a bold prediction or controversial opinion. Make people think about the bigger picture. Reference current trends leading to this future. Max 240 chars.`;
       
       const vision = await this.grokClient.generateResponse(prompt);
-      const tweetText = `${vision}\n\n🚀 Bold take?\n\n#EthereumFuture #Web3 #Innovation`;
+      let tweetText = `${vision}\n\n🚀 Bold take?\n\n#EthereumFuture #Web3 #Innovation`;
+      
+      // Add smart tags for future vision content
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'future');
       
       if (tweetText.length <= 280) {
         const result = await this.readWriteClient.v2.tweet({ text: tweetText });
@@ -1095,7 +1173,10 @@ class TwitterClient {
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
         const truncatedContent = this.smartTruncate(vision, 240);
-        const truncatedTweet = `${truncatedContent}\n\n🚀 Agree?\n\n#Ethereum #Future`;
+        let truncatedTweet = `${truncatedContent}\n\n🚀 Agree?\n\n#Ethereum #Future`;
+        
+        // Add smart tags to truncated version
+        truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'future');
         
         const result = await this.readWriteClient.v2.tweet({ text: truncatedTweet });
         this.rateLimiter.recordTweet('future');
