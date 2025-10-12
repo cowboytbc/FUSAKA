@@ -30,6 +30,8 @@ class TwitterClient {
     this.dailyContentTypes = []; // Track content types used today
     this.recentTweets = []; // Track recent tweets for reply monitoring
     this.tweetReplyCounts = new Map(); // Track reply counts per tweet
+    this.processedMentions = new Set(); // Track processed mentions to avoid duplicates
+    this.lastMentionCheck = Date.now(); // Track last mention check timestamp
 
     // Configuration from environment
     this.config = {
@@ -148,7 +150,7 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 30 minutes with Basic plan limits
+    // Check mentions every 15 minutes with Basic plan limits for maximum responsiveness
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('mentions')) {
@@ -163,11 +165,11 @@ class TwitterClient {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 30 * 60 * 1000); // 30 minutes for excellent responsiveness
+    }, 15 * 60 * 1000); // 15 minutes for maximum responsiveness
 
-    console.log('👂 Mention monitoring started (every 30 minutes - Basic plan)');
+    console.log('👂 Mention monitoring started (every 15 minutes - Maximum responsiveness)');
     
-    // Check mentions immediately on startup (after 15 seconds)
+    // Check mentions immediately on startup (after 10 seconds)
     setTimeout(async () => {
       try {
         if (this.rateLimiter.canRead('mentions')) {
@@ -177,7 +179,7 @@ class TwitterClient {
       } catch (error) {
         console.error('❌ Error in startup mention check:', error.message);
       }
-    }, 15000); // 15 seconds after startup
+    }, 10000); // 10 seconds after startup
   }
 
   // Monitor Vitalik's posts and respond
@@ -206,7 +208,7 @@ class TwitterClient {
 
   // Monitor replies to our own tweets and respond to up to 3 per tweet
   startReplyMonitoring() {
-    // Check for replies every 2 hours with Basic plan limits
+    // Check for replies every hour with Basic plan limits for better engagement
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('replies')) {
@@ -221,9 +223,9 @@ class TwitterClient {
           console.error('❌ Error checking replies:', error.message);
         }
       }
-    }, 2 * 60 * 60 * 1000); // Every 2 hours
+    }, 1 * 60 * 60 * 1000); // Every hour
 
-    console.log('💬 Reply monitoring started (every 2 hours - Basic plan)');
+    console.log('💬 Reply monitoring started (every hour - Enhanced engagement)');
   }
 
   // Monitor influential crypto accounts and engage strategically
@@ -309,31 +311,73 @@ class TwitterClient {
           continue;
         }
 
-        // Search for replies to this tweet
-        const searchQuery = `conversation_id:${tweet.conversation_id} -from:${this.username}`;
+        // Search for replies to this tweet, prioritizing mentions of our bot
+        const mentionQuery = `conversation_id:${tweet.conversation_id} @${this.username} -from:${this.username}`;
+        const generalQuery = `conversation_id:${tweet.conversation_id} -from:${this.username}`;
         
         try {
-          const replies = await this.readWriteClient.v2.search(searchQuery, {
-            max_results: 10,
-            'tweet.fields': ['created_at', 'author_id', 'conversation_id'],
+          // First, prioritize mentions of our bot in the conversation
+          const mentionReplies = await this.readWriteClient.v2.search(mentionQuery, {
+            max_results: 20,
+            'tweet.fields': ['created_at', 'author_id', 'conversation_id', 'text'],
             'user.fields': ['username']
           });
 
-          if (replies.data) {
-            // Filter out replies we've already responded to and limit to 3 new ones
-            const newReplies = replies.data.filter(reply => {
-              const replyAge = Date.now() - new Date(reply.created_at).getTime();
-              return replyAge < twentyFourHours && reply.author_id !== userId;
-            }).slice(0, 3 - replyCount);
+          let allReplies = [];
+          
+          // Add mention replies (highest priority)
+          if (mentionReplies.data) {
+            allReplies = [...mentionReplies.data.map(r => ({...r, isMention: true}))];
+          }
 
-            // Respond to new replies
-            for (const reply of newReplies) {
+          // If we have room for more replies, get general replies
+          if (allReplies.length < 3) {
+            const generalReplies = await this.readWriteClient.v2.search(generalQuery, {
+              max_results: 10,
+              'tweet.fields': ['created_at', 'author_id', 'conversation_id', 'text'],
+              'user.fields': ['username']
+            });
+
+            if (generalReplies.data) {
+              // Add non-mention replies that we haven't already included
+              const existingIds = new Set(allReplies.map(r => r.id));
+              const newGeneralReplies = generalReplies.data
+                .filter(r => !existingIds.has(r.id))
+                .map(r => ({...r, isMention: false}));
+              
+              allReplies = [...allReplies, ...newGeneralReplies];
+            }
+          }
+
+          if (allReplies.length > 0) {
+            console.log(`📊 Found ${allReplies.length} replies (${allReplies.filter(r => r.isMention).length} mentions)`);
+
+            // Filter and sort replies - mentions first, then by engagement/recency
+            const validReplies = allReplies
+              .filter(reply => {
+                const replyAge = Date.now() - new Date(reply.created_at).getTime();
+                return replyAge < twentyFourHours && reply.author_id !== userId;
+              })
+              .sort((a, b) => {
+                // Mentions first
+                if (a.isMention && !b.isMention) return -1;
+                if (!a.isMention && b.isMention) return 1;
+                // Then by recency
+                return new Date(b.created_at) - new Date(a.created_at);
+              })
+              .slice(0, 3 - replyCount);
+
+            // Respond to selected replies
+            for (const reply of validReplies) {
               if (replyCount >= 3) break;
 
               try {
-                console.log(`💬 Responding to reply: ${reply.text}`);
+                const replyType = reply.isMention ? 'mention in thread' : 'general comment';
+                console.log(`💬 Responding to ${replyType}: "${reply.text}"`);
 
-                const prompt = `Someone replied to our Twitter post saying: "${reply.text}"\n\nReply as FUSAKAAI with helpful crypto insights. Be engaging, educational, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or blockchain technology.`;
+                const prompt = reply.isMention 
+                  ? `Someone mentioned @${this.username} in a reply thread saying: "${reply.text}"\n\nReply as FUSAKAAI with crypto enthusiasm and helpful insights. Show appreciation for the mention. Be engaging and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or blockchain technology.`
+                  : `Someone replied to our Twitter post saying: "${reply.text}"\n\nReply as FUSAKAAI with helpful crypto insights. Be engaging, educational, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or blockchain technology.`;
                 
                 const response = await this.grokClient.generateResponse(prompt);
                 const finalResponse = this.truncateToFit(response, 240);
@@ -341,9 +385,10 @@ class TwitterClient {
                 await this.readWriteClient.v2.reply(finalResponse, reply.id);
                 
                 // Update reply count
-                this.tweetReplyCounts.set(tweet.id, replyCount + 1);
+                const newReplyCount = (this.tweetReplyCounts.get(tweet.id) || 0) + 1;
+                this.tweetReplyCounts.set(tweet.id, newReplyCount);
                 
-                console.log(`✅ Replied to comment on tweet ${tweet.id}`);
+                console.log(`✅ Replied to ${replyType} on tweet ${tweet.id}`);
                 
                 // Record the operation for rate limiting
                 this.rateLimiter.recordTweet('reply');
@@ -649,12 +694,12 @@ class TwitterClient {
     try {
       console.log('🔍 Checking for recent mentions...');
       
-      // Get recent mentions (limited due to API quotas)
+      // Get recent mentions (increased limit for comprehensive coverage)
       const mentions = await this.readWriteClient.v2.userMentionTimeline(
         process.env.TWITTER_USER_ID,
         { 
-          max_results: 20,
-          'tweet.fields': ['created_at', 'author_id', 'text'],
+          max_results: 50, // Increased from 20 to ensure we catch all mentions
+          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id'],
           'user.fields': ['username']
         }
       );
@@ -670,28 +715,46 @@ class TwitterClient {
       
       console.log(`📬 Found ${mentions.data.length} recent mentions`);
 
-      // Process mentions with delays to avoid rate limits
+      // Process mentions with deduplication and priority handling
+      let processedCount = 0;
+      
       for (let i = 0; i < mentions.data.length; i++) {
         const mention = mentions.data[i];
         
-        // Add delay between processing mentions
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+        // Skip if we've already processed this mention
+        if (this.processedMentions.has(mention.id)) {
+          console.log(`⏭️ Already processed mention ${mention.id}`);
+          continue;
         }
-        // Skip if older than 30 minutes (since we check every 30 minutes)
+        
+        // Add delay between processing mentions (except first)
+        if (processedCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+        }
+        
+        // Skip if older than 15 minutes (since we check every 15 minutes)
         const mentionTime = new Date(mention.created_at);
         const now = new Date();
         const diffMinutes = (now - mentionTime) / (1000 * 60);
         
-        if (diffMinutes > 30) {
+        if (diffMinutes > 15) {
           console.log(`⏰ Skipping old mention (${Math.round(diffMinutes)} minutes old)`);
           continue;
         }
 
-        console.log(`💬 Processing mention: "${mention.text}"`);
+        console.log(`💬 Processing new mention: "${mention.text}"`);
 
-        // Generate AI response
-        const prompt = `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful crypto insights.`;
+        // Determine if this is a mention in our thread or a general mention
+        const isInOurThread = this.recentTweets.some(tweet => 
+          tweet.id === mention.conversation_id || 
+          mention.text.includes('RT @' + this.username) ||
+          mention.in_reply_to_user_id === process.env.TWITTER_USER_ID
+        );
+
+        // Generate context-aware AI response
+        const prompt = isInOurThread 
+          ? `Someone mentioned @${this.username} in a reply to our tweet saying: "${mention.text}"\n\nReply as FUSAKAAI with appreciation and helpful crypto insights. Be engaging, grateful for the interaction, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful blockchain insights.`
+          : `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful crypto insights.`;
         
         try {
           const response = await this.grokClient.generateResponse(prompt);
@@ -699,17 +762,44 @@ class TwitterClient {
           
           await this.readWriteClient.v2.reply(finalResponse, mention.id);
           this.rateLimiter.recordTweet('mention_reply');
-          console.log(`✅ Replied to mention from ${mention.author_id}`);
           
-          // Rate limit: wait between replies
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Mark as processed
+          this.processedMentions.add(mention.id);
+          processedCount++;
+          
+          const contextType = isInOurThread ? 'thread mention' : 'general mention';
+          console.log(`✅ Replied to ${contextType} from ${mention.author_id}`);
+          
+          // Limit to 5 replies per batch to avoid overwhelming
+          if (processedCount >= 5) {
+            console.log('📊 Reached reply limit for this batch (5 mentions)');
+            break;
+          }
           
         } catch (replyError) {
           console.error(`❌ Error replying to mention ${mention.id}:`, replyError.message);
         }
       }
+      
+      // Clean up old processed mentions (older than 24 hours)
+      this.cleanupOldProcessedMentions();
     } catch (error) {
       console.error('❌ Error handling mentions:', error);
+    }
+  }
+
+  // Clean up old processed mentions to prevent memory bloat
+  cleanupOldProcessedMentions() {
+    const cutoffTime = Date.now() - (24 * 60 * 60 * 1000); // 24 hours ago
+    
+    // Note: Since Set doesn't store timestamps, we'll limit size instead
+    if (this.processedMentions.size > 1000) {
+      console.log('🧹 Cleaning up old processed mentions...');
+      // Keep only the most recent 500 processed mentions
+      const mentionsArray = Array.from(this.processedMentions);
+      this.processedMentions.clear();
+      mentionsArray.slice(-500).forEach(id => this.processedMentions.add(id));
+      console.log(`📊 Cleaned up processed mentions (kept ${this.processedMentions.size})`);
     }
   }
 
