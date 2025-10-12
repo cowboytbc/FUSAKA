@@ -3,6 +3,7 @@ const GrokClient = require('./grokClient');
 const PriceClient = require('./priceClient');
 const IdeogramClient = require('./ideogramClient');
 const TwitterRateLimiter = require('./twitterRateLimiter');
+const InfluencerMonitor = require('./influencerMonitor');
 
 class TwitterClient {
   constructor() {
@@ -22,6 +23,7 @@ class TwitterClient {
     this.priceClient = new PriceClient();
     this.ideogramClient = new IdeogramClient();
     this.rateLimiter = new TwitterRateLimiter();
+    this.influencerMonitor = new InfluencerMonitor(this, this.grokClient, this.rateLimiter);
     
     // Content tracking for smart distribution
     this.lastPriceUpdate = 0; // Track last price update timestamp
@@ -37,7 +39,8 @@ class TwitterClient {
       autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
       marketUpdates: process.env.TWITTER_MARKET_UPDATES === 'true',
-      replyToVitalik: process.env.TWITTER_REPLY_TO_VITALIK === 'true'
+      replyToVitalik: process.env.TWITTER_REPLY_TO_VITALIK === 'true',
+      influencerEngagement: process.env.TWITTER_INFLUENCER_ENGAGEMENT !== 'false' // Default enabled
     };
 
     // Vitalik's Twitter user ID 
@@ -76,6 +79,7 @@ class TwitterClient {
       this.startMentionMonitoring();
       this.startVitalikMonitoring();
       this.startReplyMonitoring();
+      this.startInfluencerMonitoring();
 
       console.log('🐦 Twitter bot started successfully!');
       return true;
@@ -220,6 +224,44 @@ class TwitterClient {
     }, 2 * 60 * 60 * 1000); // Every 2 hours
 
     console.log('💬 Reply monitoring started (every 2 hours - Basic plan)');
+  }
+
+  // Monitor influential crypto accounts and engage strategically
+  startInfluencerMonitoring() {
+    if (!this.config.influencerEngagement) {
+      console.log('🎯 Influencer monitoring disabled via config');
+      return;
+    }
+    // Check influencers every 45 minutes for strategic engagement
+    setInterval(async () => {
+      try {
+        if (!this.rateLimiter.canRead('influencer')) {
+          console.log('⏸️ Skipping influencer check due to rate limits');
+          return;
+        }
+        await this.influencerMonitor.monitorAllInfluencers();
+      } catch (error) {
+        if (error.code === 429) {
+          console.log('⏳ Rate limited on influencer monitoring - waiting...');
+        } else {
+          console.error('❌ Error in influencer monitoring:', error.message);
+        }
+      }
+    }, 45 * 60 * 1000); // Every 45 minutes
+
+    console.log('🎯 Influencer monitoring started (every 45 minutes - Strategic engagement)');
+    
+    // Initial check after 2 minutes to let other services start first
+    setTimeout(async () => {
+      try {
+        if (this.rateLimiter.canRead('influencer')) {
+          console.log('🎯 Running initial influencer check...');
+          await this.influencerMonitor.monitorAllInfluencers();
+        }
+      } catch (error) {
+        console.error('❌ Error in startup influencer check:', error.message);
+      }
+    }, 120000); // 2 minutes after startup
   }
 
   // Check and respond to comments on our tweets
