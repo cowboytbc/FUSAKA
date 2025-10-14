@@ -288,7 +288,7 @@ class SmartTaggingSystem {
   getContextualTags(tweetType, content) {
     const baseTags = this.getSmartTags(content, 1);
     
-    // Add type-specific tags
+    // Add type-specific tags (INCLUDING VIRAL CONTENT)
     const typeSpecificTags = {
       'price': ['@DefiLlama', '@coingecko'],
       'price_update': ['@DefiLlama', '@coingecko'],
@@ -300,7 +300,16 @@ class SmartTaggingSystem {
       'educational_content': ['@RyanSAdams', '@aantonop'],
       'future': ['@VitalikButerin', '@ethereum'],
       'future_vision': ['@VitalikButerin', '@ethereum'],
-      'mention_reply': ['@ethereum', '@DefiLlama']
+      'mention_reply': ['@ethereum', '@DefiLlama'],
+      
+      // 🔥 VIRAL CONTENT TAGS 🔥
+      'viral': ['@VitalikButerin', '@ethereum', '@RyanSAdams'],
+      'controversial': ['@VitalikButerin', '@cobie', '@sassal0x'],
+      'success': ['@ethereum', '@RyanSAdams', '@DefiLlama'],
+      'community': ['@ethereum', '@EthereumDenver', '@gitcoin'],
+      'hottake': ['@VitalikButerin', '@cobie', '@DegenSpartan'],
+      'inspiration': ['@ethereum', '@RyanSAdams', '@TrustlessState'],
+      'thread': ['@VitalikButerin', '@ethereum', '@RyanSAdams']
     };
 
     const specificTags = typeSpecificTags[tweetType] || [];

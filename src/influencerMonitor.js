@@ -229,18 +229,19 @@ class InfluencerMonitor {
 
 Tweet: "${tweet.text}"
 
-Generate a ${influencer.responseStyle} response that:
-1. Shows genuine understanding of their expertise
-2. Adds valuable insight or asks a thoughtful question
-3. Mentions FUSAKA project naturally if relevant
-4. Uses appropriate tone for ${influencer.name}
-5. Stays under 240 characters
-6. Uses relevant emojis sparingly
+Generate a VIRAL, engaging ${influencer.responseStyle} response that:
+1. Shows deep understanding of their expertise with specific insights
+2. Adds VALUABLE perspective or asks thought-provoking questions
+3. References FUSAKA project NATURALLY when relevant (not forced)
+4. Matches ${influencer.name}'s energy and expertise level
+5. Includes engagement hooks (questions, controversial takes, predictions)
+6. Uses strategic emojis for emphasis and emotion
+7. Stays under 220 characters to leave room for tags
 
-Style: ${influencer.responseStyle}
+Style: ${influencer.responseStyle} but MORE ENGAGING
 Focus: ${influencer.expertise}
 
-Be authentic, respectful, and add genuine value to the conversation.`;
+Be authentic, add genuine alpha, and create reply-worthy content that gets noticed!`;
 
     try {
       let response = await this.grokClient.generateResponse(prompt);
@@ -257,21 +258,29 @@ Be authentic, respectful, and add genuine value to the conversation.`;
     }
   }
   
-  // Truncate response to fit Twitter limits
+  // Truncate response to fit Twitter limits (accounting for tags)
   truncateToFit(text, maxLength) {
     if (text.length <= maxLength) return text;
     
+    // Reserve space for potential tags (up to 50 chars)
+    const effectiveMaxLength = maxLength - 50;
+    
     // Smart truncation - try to end at a sentence or word boundary
-    const truncated = text.substring(0, maxLength - 3);
+    const truncated = text.substring(0, effectiveMaxLength);
     const lastSentence = truncated.lastIndexOf('.');
     const lastSpace = truncated.lastIndexOf(' ');
     
-    if (lastSentence > maxLength * 0.7) {
+    // Prefer complete sentences
+    if (lastSentence > effectiveMaxLength * 0.6) {
       return text.substring(0, lastSentence + 1);
-    } else if (lastSpace > maxLength * 0.8) {
-      return truncated.substring(0, lastSpace) + '...';
-    } else {
-      return truncated + '...';
+    } 
+    // Otherwise end at word boundary without adding "..."
+    else if (lastSpace > effectiveMaxLength * 0.7) {
+      return truncated.substring(0, lastSpace);
+    } 
+    // Last resort - truncate cleanly without "..."
+    else {
+      return truncated;
     }
   }
   

@@ -511,7 +511,7 @@ Keep it conversational (1-3 sentences), engaging, and show your expertise. Use e
 
 Current context: Today is ${new Date().toLocaleDateString('en-US')}`;
 
-              const response = await this.grokClient.callGrok(responsePrompt);
+              const response = await this.grokClient.generateResponse(responsePrompt);
               
               // Add a small delay to make it feel more natural (1-3 seconds)
               const delay = Math.random() * 2000 + 1000;

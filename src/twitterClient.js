@@ -38,7 +38,7 @@ class TwitterClient {
     // Configuration from environment
     this.config = {
       enabled: process.env.TWITTER_ENABLED === 'true',
-      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 60, // minutes - Optimized for Basic plan
+      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 15, // minutes - VIRAL MODE ACTIVATED
       replyToMentions: process.env.TWITTER_REPLY_TO_MENTIONS === 'true',
       autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
@@ -110,8 +110,20 @@ class TwitterClient {
       }
     }, 5000); // Wait 5 seconds for everything to initialize
     
+    // Post immediately on startup (after 30 seconds)
+    setTimeout(async () => {
+      try {
+        console.log('🚀 Posting startup tweet...');
+        await this.postTechnicalInsight();
+      } catch (error) {
+        console.error('❌ Error in startup tweet:', error);
+      }
+    }, 30000); // 30 seconds after startup
+    
     setInterval(async () => {
       try {
+        console.log(`🔄 Automated tweet cycle triggered at ${new Date().toLocaleTimeString()}`);
+        
         // Check rate limits before posting
         if (!this.rateLimiter.canTweet('automated')) {
           console.log('⏸️ Skipping automated tweet due to rate limits');
@@ -122,19 +134,63 @@ class TwitterClient {
         const ethPrice = await this.priceClient.getPrice('ethereum');
         if (ethPrice && ethPrice.change24h) {
           const change = parseFloat(ethPrice.change24h);
+          console.log(`💰 Current ETH change: ${change}% (threshold: ±3%)`);
           if (Math.abs(change) >= 3) {
-            // Post market reaction for significant movements
+            console.log(`🎢 VIRAL MOMENT! Significant movement detected! Posting market reaction...`);
             await this.postMarketReaction(ethPrice);
+            
+            // VIRAL BOOST: Post extra content during volatile times!
+            if (Math.abs(change) >= 5) {
+              console.log(`🚀 EXTREME VOLATILITY! Posting follow-up viral content...`);
+              setTimeout(async () => {
+                try {
+                  await this.postHotTake(); // Double down on viral content!
+                } catch (error) {
+                  console.error('❌ Error in volatility follow-up:', error);
+                }
+              }, 300000); // 5 minutes later
+            }
             return;
           }
         }
         
-        // Smart content distribution - educational focus
-        const contentType = this.selectContentType();
+        // VIRAL content distribution - engagement focus
+        const contentType = this.selectViralContentType();
+        console.log(`� Selected VIRAL content type: ${contentType}`);
         
         switch(contentType) {
           case 'price':
             await this.postDailyPriceUpdate();
+            break;
+          case 'viral_prediction':
+            await this.postViralPrediction();
+            break;
+          case 'controversial_take':
+            await this.postControversialTake();
+            break;
+          case 'viral_education':
+            await this.postViralEducation();
+            break;
+          case 'success_story':
+            await this.postSuccessStory();
+            break;
+          case 'community_callout':
+            await this.postCommunityCallout();
+            break;
+          case 'viral_thread':
+            await this.postViralThread();
+            break;
+          case 'hot_take':
+            await this.postHotTake();
+            break;
+          case 'weekend_inspiration':
+            await this.postWeekendInspiration();
+            break;
+          case 'community_story':
+            await this.postCommunityStory();
+            break;
+          case 'viral_technical':
+            await this.postViralTechnical();
             break;
           case 'technical':
             await this.postTechnicalInsight();
@@ -149,7 +205,7 @@ class TwitterClient {
             await this.postFutureVision();
             break;
           default:
-            await this.postTechnicalInsight();
+            await this.postHotTake(); // Default to viral content!
         }
       } catch (error) {
         console.error('❌ Error in automated tweet:', error);
@@ -285,27 +341,42 @@ class TwitterClient {
       console.log('💬 Checking for replies to our tweets...');
 
       // Get our recent tweets (last 24 hours) to check for replies
-      const me = await this.readWriteClient.currentUser();
       let userId;
       
-      if (me.data?.id) {
-        userId = me.data.id;
-      } else if (me.id_str) {
-        userId = me.id_str;
-      } else {
+      try {
+        const me = await this.readWriteClient.currentUser();
+        if (me.data?.id) {
+          userId = me.data.id;
+        } else if (me.id_str) {
+          userId = me.id_str;
+        } else {
+          userId = process.env.TWITTER_USER_ID;
+        }
+      } catch (userError) {
+        console.log('⚠️ Could not get current user, using fallback ID');
+        userId = process.env.TWITTER_USER_ID;
+      }
+
+      if (!userId) {
         console.log('❌ Could not get user ID for reply monitoring');
         return;
       }
 
-      // Get our recent tweets
-      const tweets = await this.readWriteClient.v2.userTimeline(userId, {
-        max_results: 10,
-        'tweet.fields': ['created_at', 'public_metrics', 'conversation_id'],
-        exclude: ['retweets', 'replies']
-      });
+      // Get our recent tweets with error handling
+      let tweets;
+      try {
+        tweets = await this.readWriteClient.v2.userTimeline(userId, {
+          max_results: 10,
+          'tweet.fields': ['created_at', 'public_metrics', 'conversation_id'],
+          exclude: ['retweets', 'replies']
+        });
+      } catch (timelineError) {
+        console.log('⚠️ Error fetching timeline for reply monitoring:', timelineError.message);
+        return;
+      }
 
-      if (!tweets.data) {
-        console.log('📭 No recent tweets found');
+      if (!tweets || !tweets.data || !Array.isArray(tweets.data)) {
+        console.log('📭 No recent tweets found or invalid response');
         return;
       }
 
@@ -393,7 +464,7 @@ class TwitterClient {
                   : `Someone replied to our Twitter post saying: "${reply.text}"\n\nReply as FUSAKAAI with helpful crypto insights. Be engaging, educational, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or blockchain technology.`;
                 
                 const response = await this.grokClient.generateResponse(prompt);
-                const finalResponse = this.truncateToFit(response, 240);
+                const finalResponse = this.smartTruncate(response, 240);
 
                 await this.readWriteClient.v2.reply(finalResponse, reply.id);
                 
@@ -766,8 +837,8 @@ class TwitterClient {
 
         // Generate context-aware AI response
         const prompt = isInOurThread 
-          ? `Someone mentioned @${this.username} in a reply to our tweet saying: "${mention.text}"\n\nReply as FUSAKAAI with appreciation and helpful crypto insights. Be engaging, grateful for the interaction, and use relevant emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful blockchain insights.`
-          : `Someone mentioned @${this.username} on Twitter saying: "${mention.text}"\n\nReply as FUSAKAAI with crypto enthusiasm. Be helpful, engaging, and use emojis. Keep it under 240 characters. Focus on Ethereum, DeFi, or helpful crypto insights.`;
+          ? `Someone mentioned @${this.username} in a reply thread saying: "${mention.text}"\n\nReply as FUSAKAAI with VIRAL energy! Show appreciation, drop valuable alpha, and create engaging conversation. Include questions or controversial takes to drive more engagement. Use strategic emojis. Be grateful but bold. Keep it under 220 characters. Focus on Ethereum insights that make people want to follow.`
+          : `Someone mentioned @${this.username} saying: "${mention.text}"\n\nReply as FUSAKAAI with MAXIMUM crypto enthusiasm! Drop alpha, share insights, ask engaging questions, make bold predictions. Create content people want to like/retweet/reply to. Use emojis strategically. Be helpful but VIRAL. Keep it under 220 characters. Focus on Ethereum/DeFi insights that get attention.`;
         
         try {
           let response = await this.grokClient.generateResponse(prompt);
@@ -775,7 +846,7 @@ class TwitterClient {
           // Add smart tags for mention replies
           response = this.smartTagger.addTagsToTweet(response, 'mention_reply');
           
-          const finalResponse = this.truncateToFit(response, 240);
+          const finalResponse = this.smartTruncate(response, 240);
           
           await this.readWriteClient.v2.reply(finalResponse, mention.id);
           this.rateLimiter.recordTweet('mention_reply');
@@ -852,7 +923,39 @@ class TwitterClient {
     }
   }
 
-  // Smart content type selection
+  // VIRAL content type selection with marketing psychology
+  selectViralContentType() {
+    const hour = new Date().getHours();
+    const day = new Date().getDay();
+    const isWeekend = [0, 6].includes(day);
+    const isFriday = day === 5;
+    
+    // VIRAL TIMING STRATEGY
+    if (hour >= 9 && hour <= 11) {
+      // Morning energy - controversial takes and predictions
+      return Math.random() < 0.6 ? 'viral_prediction' : 'controversial_take';
+    } else if (hour >= 12 && hour <= 14) {
+      // Lunch time - digestible education with hooks
+      return Math.random() < 0.7 ? 'viral_education' : 'success_story';
+    } else if (hour >= 15 && hour <= 17) {
+      // Afternoon - market analysis and community engagement
+      return Math.random() < 0.5 ? 'price' : 'community_callout';
+    } else if (hour >= 18 && hour <= 21) {
+      // Peak engagement hours - maximum viral content
+      return Math.random() < 0.4 ? 'viral_thread' : 'hot_take';
+    } else if (isFriday && hour >= 16) {
+      // Friday evening - weekend hype mode!
+      return Math.random() < 0.7 ? 'hot_take' : 'viral_prediction';
+    } else if (isWeekend) {
+      // Weekend vibes - inspiration and community with extra spice
+      return Math.random() < 0.4 ? 'weekend_inspiration' : Math.random() < 0.5 ? 'community_story' : 'controversial_take';
+    }
+    
+    // Fallback to regular content but with viral spin
+    return Math.random() < 0.3 ? 'viral_technical' : 'ecosystem';
+  }
+
+  // Original content type selection
   selectContentType() {
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -950,10 +1053,10 @@ class TwitterClient {
       const reactionType = change > 0 ? 'bullish' : 'bearish';
       const intensity = absChange > 10 ? 'extreme' : absChange > 7 ? 'major' : 'significant';
       
-      const prompt = `ETH just moved ${change}% in 24h to $${priceData.price}. Write a ${reactionType} market reaction tweet. Context: ${intensity} ${reactionType === 'bullish' ? 'rally' : 'correction'}. Include: 1) What likely triggered this 2) Impact on DeFi/NFTs 3) What to watch next 4) Keep perspective (zoom out). Be insightful, not emotional. Max 220 chars.`;
+      const prompt = `ETH just moved ${change}% in 24h to $${priceData.price}! Write a VIRAL ${reactionType} market reaction. Context: ${intensity} ${reactionType === 'bullish' ? 'rally' : 'correction'}. Include: 1) What triggered this 2) Why this matters MORE than people think 3) Bold prediction for next move 4) Engagement hook question. Be confident and exciting. Max 200 chars.`;
       
       const reaction = await this.grokClient.generateResponse(prompt);
-      let tweetText = `${reaction}\n\n🎢 ETH: $${priceData.price} | ${change > 0 ? '🚀' : '📉'} ${change}%\n\n#Ethereum #MarketUpdate`;
+      let tweetText = `${reaction}\n\n🎢 ETH: $${priceData.price} | ${change > 0 ? '🚀🚀🚀' : '📉💥'} ${change}%\n\n${change > 0 ? '#EthereumRally #ToTheMoon' : '#EthereumDip #BuyTheBlood'} #MarketAlert`;
       
       // Add smart tags for market reactions
       tweetText = this.smartTagger.addTagsToTweet(tweetText, 'price');
@@ -1187,6 +1290,348 @@ class TwitterClient {
       }
     } catch (error) {
       console.error('❌ Error posting future vision:', error);
+    }
+  }
+
+  // 🔥 VIRAL MARKETING METHODS 🔥
+
+  // Viral prediction - bold market calls
+  async postViralPrediction() {
+    try {
+      console.log('🔮 Posting VIRAL prediction...');
+      
+      const predictions = [
+        'ETH will flip BTC market cap before 2026. Here\'s why the data supports this bold claim:',
+        'Gas fees will drop 99% by 2025. Layer 2s are about to change everything:',
+        'The next bull run will be driven by institutional DeFi adoption, not retail FOMO:',
+        'Ethereum will process 1 million TPS by 2027. The scaling roadmap is already here:',
+        'Real World Assets on Ethereum will hit $1 trillion TVL. Traditional finance is waking up:',
+        'AI + Blockchain convergence will create the first trillionaire. Ethereum is the foundation:',
+        'The flippening happens when ETH staking rewards beat traditional bonds:',
+        'Web3 gaming will onboard 100 million users to Ethereum in 18 months:'
+      ];
+      
+      const prediction = predictions[Math.floor(Math.random() * predictions.length)];
+      const prompt = `Create a viral Twitter thread starter: "${prediction}" Make it compelling with specific data points, controversial angles, and strong conviction. Include 2-3 specific reasons why this will happen. Be bold but credible. End with engagement hook. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n🧵 Thread below 👇\n\n#Ethereum #BoldPrediction #Web3`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'viral');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('viral_prediction');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted VIRAL prediction to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting viral prediction:', error);
+    }
+  }
+
+  // Controversial take - engagement magnet
+  async postControversialTake() {
+    try {
+      console.log('💥 Posting controversial take...');
+      
+      const controversialTopics = [
+        'Most "DeFi" protocols are just glorified yield farms. Real DeFi looks different:',
+        'NFTs aren\'t dead - they just haven\'t found their true use case yet:',
+        'Layer 2s are fragmenting Ethereum more than helping it scale:',
+        'Proof of Stake made Ethereum less decentralized, not more:',
+        'Most crypto "influencers" have never built anything on-chain:',
+        'The merge was overhyped. The real game-changer is coming with sharding:',
+        'Retail investors are still early to Ethereum. Institutions barely understand it:',
+        'Gas fees are actually a feature, not a bug. Here\'s the unpopular truth:'
+      ];
+      
+      const take = controversialTopics[Math.floor(Math.random() * controversialTopics.length)];
+      const prompt = `Create a controversial but thoughtful crypto take: "${take}" Be contrarian but back it with solid reasoning. Make people want to argue or agree strongly. Include specific examples. End with "Change my mind 🤔" Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\nChange my mind 🤔\n\n#Ethereum #UnpopularOpinion #ChangeMyMind`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'controversial');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('controversial');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted controversial take to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting controversial take:', error);
+    }
+  }
+
+  // Viral education - make learning addictive
+  async postViralEducation() {
+    try {
+      console.log('📚 Posting VIRAL education...');
+      
+      const hooks = [
+        'This ONE concept will make you understand Ethereum better than 95% of crypto Twitter:',
+        'Most people get this wrong about smart contracts. Here\'s what they really are:',
+        'The biggest misconception about gas fees (and why it matters for your wallet):',
+        'Why Ethereum is called "programmable money" in 60 seconds:',
+        'The difference between Layer 1 and Layer 2 that nobody explains properly:',
+        'How MEV works and why it\'s either Ethereum\'s biggest problem OR feature:',
+        'What "composability" actually means and why it\'s crypto\'s secret weapon:',
+        'The real reason why Ethereum switched to Proof of Stake (hint: not just energy):'
+      ];
+      
+      const hook = hooks[Math.floor(Math.random() * hooks.length)];
+      const prompt = `Create engaging educational content: "${hook}" Explain complex Ethereum concepts simply but not dumbed down. Use analogies, examples, and clear benefits. Make people feel smart for learning. End with "Save this tweet!" Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n💡 Save this tweet!\n\n#EthereumEducation #LearnWeb3 #SmartContracts`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'education');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('viral_education');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted viral education to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting viral education:', error);
+    }
+  }
+
+  // Success story - inspire and motivate
+  async postSuccessStory() {
+    try {
+      console.log('🏆 Posting success story...');
+      
+      const successFrameworks = [
+        'From zero to DeFi whale: How understanding Ethereum changed everything',
+        'This developer built on Ethereum for 6 months. The results will shock you:',
+        'How learning smart contracts landed a $200k Web3 job in 8 months:',
+        'The Ethereum trade that turned $1k into $100k (and the lesson behind it):',
+        'Why choosing Ethereum over other chains was the best decision ever made:',
+        'From traditional finance to DeFi: A conversion story worth reading:',
+        'The compound effect of learning one Ethereum concept per day for a year:',
+        'How building on Ethereum during the bear market set up generational wealth:'
+      ];
+      
+      const framework = successFrameworks[Math.floor(Math.random() * successFrameworks.length)];
+      const prompt = `Create an inspiring success story: "${framework}" Focus on transformation, specific outcomes, and actionable lessons. Make people want to start their own journey. Include numbers and timeline. End with motivational CTA. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n🚀 Your turn?\n\n#EthereumSuccess #Web3Journey #BUIDLing`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'success');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('success_story');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted success story to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting success story:', error);
+    }
+  }
+
+  // Community callout - build tribe
+  async postCommunityCallout() {
+    try {
+      console.log('📢 Posting community callout...');
+      
+      const callouts = [
+        'Ethereum builders, what\'s the most underrated protocol you\'re watching?',
+        'DeFi degens: Drop your best alpha in the replies (but DYOR first 👀)',
+        'Web3 developers: What\'s your biggest technical challenge right now?',
+        'Ethereum holders: What got you started in crypto? Share your origin story 👇',
+        'Layer 2 maxis: Rank your favorites and explain why (spicy takes welcome)',
+        'NFT creators on Ethereum: What\'s your next big project? Let\'s see it!',
+        'Smart contract auditors: What\'s the weirdest bug you\'ve found?',
+        'Ethereum researchers: What breakthrough are you most excited about?'
+      ];
+      
+      const callout = callouts[Math.floor(Math.random() * callouts.length)];
+      const prompt = `Expand this community engagement post: "${callout}" Add context, show genuine interest, and create space for diverse opinions. Make people feel seen and heard. Include relevant emojis. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n💬 Comments = Alpha\n\n#EthereumCommunity #Web3 #Discussion`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'community');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('community_callout');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted community callout to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting community callout:', error);
+    }
+  }
+
+  // Hot take - maximum engagement
+  async postHotTake() {
+    try {
+      console.log('🌶️ Posting HOT TAKE...');
+      
+      const hotTakes = [
+        'ETH is still massively undervalued and here\'s the math to prove it:',
+        'Most people are using DeFi wrong. The real alpha is in composability:',
+        'Ethereum\'s biggest competitor isn\'t another blockchain - it\'s traditional finance:',
+        'The bear market was the best thing that happened to Ethereum development:',
+        'Web3 gaming will fail until it stops trying to be "crypto gaming":',
+        'DAOs are still governance theater. Real decentralization looks different:',
+        'Ethereum will eat traditional cloud computing. AWS should be worried:',
+        'The next crypto cycle will be built on utility, not speculation:'
+      ];
+      
+      const take = hotTakes[Math.floor(Math.random() * hotTakes.length)];
+      const prompt = `Create a spicy hot take: "${take}" Be bold, confident, and slightly controversial. Include 2-3 strong supporting points. Make people want to quote tweet with their opinion. End with fire emoji. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n🔥🔥🔥\n\n#EthereumHotTake #Web3 #Controversial`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'hottake');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('hot_take');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted HOT TAKE to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting hot take:', error);
+    }
+  }
+
+  // Weekend inspiration - feel-good content
+  async postWeekendInspiration() {
+    try {
+      console.log('✨ Posting weekend inspiration...');
+      
+      const inspirations = [
+        'Weekend reminder: You\'re building the future of finance. Keep going 💪',
+        'Saturday motivation: Every line of Solidity code you write matters',
+        'Sunday reflection: Ethereum has changed more lives than any technology in decades',
+        'Weekend vibes: The best time to plant a tree was 20 years ago. The second best time is now 🌱',
+        'Saturday energy: Bear markets build character. Bull markets build wealth',
+        'Weekend wisdom: Focus on learning, not just earning. Knowledge compounds',
+        'Sunday thoughts: Every expert was once a beginner. Your journey matters',
+        'Weekend motivation: The blockchain never sleeps, but you should. Rest and recharge'
+      ];
+      
+      const inspiration = inspirations[Math.floor(Math.random() * inspirations.length)];
+      const prompt = `Create uplifting weekend content: "${inspiration}" Make it motivational but authentic. Connect to broader Ethereum/crypto journey. Include personal growth angle. Add relevant emojis. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n🌟 Have a great weekend!\n\n#WeekendVibes #Ethereum #Motivation`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'inspiration');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('weekend_inspiration');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted weekend inspiration to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting weekend inspiration:', error);
+    }
+  }
+
+  // Viral technical content
+  async postViralTechnical() {
+    try {
+      console.log('⚡ Posting VIRAL technical content...');
+      
+      const viralTech = [
+        'This ONE line of Solidity code could save you thousands in gas fees:',
+        'Why smart contracts are actually dumb (and how to make them smarter):',
+        'The optimization that increased our DApp performance by 400%:',
+        'Most developers get this wrong about Ethereum state management:',
+        'The security vulnerability hiding in 90% of smart contracts:',
+        'How we reduced deployment costs by 80% with this simple trick:',
+        'The design pattern that makes composability actually work:',
+        'Why your DApp is slow (and how Layer 2s fix it):'
+      ];
+      
+      const tech = viralTech[Math.floor(Math.random() * viralTech.length)];
+      const prompt = `Create viral technical content: "${tech}" Make complex concepts accessible but impressive. Include specific examples or code snippets. Appeal to developers and non-developers. End with "Bookmark for later!" Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n🔖 Bookmark for later!\n\n#EthereumDev #Solidity #Web3Development`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'technical');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('viral_technical');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted viral technical content to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting viral technical content:', error);
+    }
+  }
+
+  // Viral thread starter (placeholder - can expand to full thread logic)
+  async postViralThread() {
+    try {
+      console.log('🧵 Posting viral thread starter...');
+      
+      const threadTopics = [
+        'Why Ethereum will win the smart contract wars (10 reasons):',
+        'The DeFi summer timeline that nobody talks about:',
+        'How to go from zero to Ethereum developer in 90 days:',
+        'The Layer 2 wars explained (and who will win):',
+        'Why institutional money is quietly flooding into Ethereum:',
+        'The untold story of how Ethereum survived the bear market:',
+        'Breaking down Ethereum\'s roadmap in simple terms:',
+        'How Ethereum became the world computer (a timeline):'
+      ];
+      
+      const topic = threadTopics[Math.floor(Math.random() * threadTopics.length)];
+      const prompt = `Create a compelling thread starter: "${topic}" Make it irresistible to click. Promise specific value and insights. Include numbers or timeline. End with "Let's dive in 👇" Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\nLet's dive in 👇\n\n🧵 THREAD (1/10)\n\n#EthereumThread #Web3Education`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'thread');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('viral_thread');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted viral thread starter to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting viral thread:', error);
+    }
+  }
+
+  // Community story - human connection
+  async postCommunityStory() {
+    try {
+      console.log('❤️ Posting community story...');
+      
+      const stories = [
+        'Met someone at EthCC who quit their job to build on Ethereum full-time. Inspiring AF',
+        'Just watched a 16-year-old demo their first smart contract. The future is bright',
+        'Teacher in Nigeria using Ethereum to send money home. This is why we build',
+        'Grandmother learning DeFi to help her retirement. Web3 is for everyone',
+        'Developer with no CS degree just got hired at a top Web3 company. Skills > credentials',
+        'Artist selling NFTs to fund their art school. Ethereum democratizing creativity',
+        'Small business owner accepting ETH payments. Adoption happening everywhere',
+        'Student paying for college with DeFi yields. Financial sovereignty in action'
+      ];
+      
+      const story = stories[Math.floor(Math.random() * stories.length)];
+      const prompt = `Expand this human story: "${story}" Make it relatable and emotional. Show the real-world impact of Ethereum. Include universal themes like hope, growth, opportunity. End with community question. Max 240 chars.`;
+      
+      const content = await this.grokClient.generateResponse(prompt);
+      let tweetText = `${content}\n\n💭 What's your Web3 story?\n\n#EthereumStories #Web3Community #RealWorldImpact`;
+      
+      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'community');
+      
+      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
+      this.rateLimiter.recordTweet('community_story');
+      this.trackTweet(result.data.id);
+      console.log('✅ Posted community story to Twitter');
+      console.log(`🐦 Tweet ID: ${result.data.id}`);
+    } catch (error) {
+      console.error('❌ Error posting community story:', error);
     }
   }
 
