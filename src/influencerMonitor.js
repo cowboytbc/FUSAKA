@@ -376,14 +376,14 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
     
     const orderedIds = [...highPriority, ...mediumPriority, ...lowPriority];
     
-    // Monitor up to 5 influencers per cycle to stay within rate limits
-    const toMonitor = orderedIds.slice(0, 5);
+    // Monitor up to 10 influencers per cycle for maximum coverage (was 5)
+    const toMonitor = orderedIds.slice(0, 10);
     
     for (const userId of toMonitor) {
       await this.monitorInfluencer(userId);
       
-      // Wait between checks to be respectful of rate limits
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Reduced wait time between checks for faster coverage
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 3s to 2s
     }
     
     console.log('✅ Influencer monitoring cycle complete');

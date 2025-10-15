@@ -219,7 +219,7 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 10 minutes with Basic plan limits for ultra responsiveness
+    // Check mentions every 5 minutes with Basic plan limits for MAXIMUM responsiveness
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('mentions')) {
@@ -234,9 +234,9 @@ class TwitterClient {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 10 * 60 * 1000); // 10 minutes for ultra responsiveness
+    }, 5 * 60 * 1000); // 5 minutes for MAXIMUM responsiveness
 
-    console.log('👂 Mention monitoring started (every 10 minutes - Ultra responsiveness)');
+    console.log('👂 Mention monitoring started (every 5 minutes - MAXIMUM responsiveness)');
     
     // Check mentions immediately on startup (after 10 seconds)
     setTimeout(async () => {
@@ -303,7 +303,7 @@ class TwitterClient {
       console.log('🎯 Influencer monitoring disabled via config');
       return;
     }
-    // Check influencers every 45 minutes for strategic engagement
+    // Check influencers every 30 minutes for aggressive engagement
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('influencer')) {
@@ -318,9 +318,9 @@ class TwitterClient {
           console.error('❌ Error in influencer monitoring:', error.message);
         }
       }
-    }, 45 * 60 * 1000); // Every 45 minutes
+    }, 30 * 60 * 1000); // Every 30 minutes for MAXIMUM coverage
 
-    console.log('🎯 Influencer monitoring started (every 45 minutes - Strategic engagement)');
+    console.log('🎯 Influencer monitoring started (every 30 minutes - MAXIMUM engagement)');
     
     // Initial check after 2 minutes to let other services start first
     setTimeout(async () => {
@@ -776,34 +776,69 @@ class TwitterClient {
 
   async checkAndReplyToMentions() {
     try {
-      console.log('🔍 Checking for recent mentions...');
+      console.log('🔍 Checking for recent mentions and @fusakaai tags...');
       
-      // Get recent mentions (increased limit for comprehensive coverage)
+      // METHOD 1: Get recent mentions (MAXIMUM limit for comprehensive coverage)
       const mentions = await this.readWriteClient.v2.userMentionTimeline(
         process.env.TWITTER_USER_ID,
         { 
-          max_results: 50, // Increased from 20 to ensure we catch all mentions
-          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id'],
-          'user.fields': ['username']
+          max_results: 100, // Increased to MAXIMUM to ensure we catch ALL mentions
+          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id', 'referenced_tweets'],
+          'user.fields': ['username', 'name'],
+          'expansions': ['author_id', 'referenced_tweets.id']
         }
       );
       
-      // Record the API read
-      this.rateLimiter.recordRead('mentions');
+      // METHOD 2: Search for @fusakaai mentions in tweets (broader coverage)
+      let searchMentions = null;
+      try {
+        searchMentions = await this.readWriteClient.v2.search('@fusakaai -is:retweet', {
+          max_results: 50,
+          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id'],
+          'user.fields': ['username', 'name'],
+          'expansions': ['author_id']
+        });
+        console.log(`🔎 Found ${searchMentions?.data?.length || 0} @fusakaai search results`);
+      } catch (searchError) {
+        console.log('⚠️ Search mentions failed (rate limit or API issue), using timeline only');
+      }
       
-      // Validate mentions response structure
-      if (!mentions || !mentions.data || !Array.isArray(mentions.data)) {
+      // Record the API reads
+      this.rateLimiter.recordRead('mentions');
+      if (searchMentions) {
+        this.rateLimiter.recordRead('search');
+      }
+      
+      // Combine all mentions from both sources
+      let allMentions = [];
+      
+      // Add timeline mentions
+      if (mentions && mentions.data && Array.isArray(mentions.data)) {
+        allMentions.push(...mentions.data);
+        console.log(`📬 Found ${mentions.data.length} timeline mentions`);
+      }
+      
+      // Add search mentions (avoiding duplicates)
+      if (searchMentions && searchMentions.data && Array.isArray(searchMentions.data)) {
+        const searchResults = searchMentions.data.filter(tweet => 
+          !allMentions.some(existing => existing.id === tweet.id)
+        );
+        allMentions.push(...searchResults);
+        console.log(`🔎 Added ${searchResults.length} unique search mentions`);
+      }
+      
+      if (allMentions.length === 0) {
         console.log('📭 No new mentions found');
         return;
       }
       
-      console.log(`📬 Found ${mentions.data.length} recent mentions`);
+      console.log(`📬 Total mentions to process: ${allMentions.length}`);
 
       // Process mentions with deduplication and priority handling
       let processedCount = 0;
       
-      for (let i = 0; i < mentions.data.length; i++) {
-        const mention = mentions.data[i];
+      for (let i = 0; i < allMentions.length; i++) {
+        const mention = allMentions[i];
         
         // Skip if we've already processed this mention
         if (this.processedMentions.has(mention.id)) {
@@ -816,12 +851,12 @@ class TwitterClient {
           await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
         }
         
-        // Skip if older than 15 minutes (since we check every 15 minutes)
+        // Skip if older than 45 minutes (allow longer window for comprehensive coverage)
         const mentionTime = new Date(mention.created_at);
         const now = new Date();
         const diffMinutes = (now - mentionTime) / (1000 * 60);
         
-        if (diffMinutes > 15) {
+        if (diffMinutes > 45) {
           console.log(`⏰ Skipping old mention (${Math.round(diffMinutes)} minutes old)`);
           continue;
         }
