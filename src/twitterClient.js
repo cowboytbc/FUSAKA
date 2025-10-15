@@ -219,24 +219,24 @@ class TwitterClient {
   startMentionMonitoring() {
     if (!this.config.replyToMentions) return;
 
-    // Check mentions every 5 minutes with Basic plan limits for MAXIMUM responsiveness
+    // Check mentions every 15 minutes to preserve API limits (was 5 min - too aggressive)
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('mentions')) {
-          console.log('⏸️ Skipping mention check due to read limits');
+          console.log('⏸️ Skipping mention check due to read limits - preserving quota');
           return;
         }
         await this.checkAndReplyToMentions();
       } catch (error) {
         if (error.code === 429) {
-          console.log('⏳ Rate limited on mentions - waiting...');
+          console.log('⏳ Rate limited on mentions - extending delay...');
         } else {
           console.error('❌ Error checking mentions:', error.message);
         }
       }
-    }, 5 * 60 * 1000); // 5 minutes for MAXIMUM responsiveness
+    }, 15 * 60 * 1000); // 15 minutes for sustainable API usage
 
-    console.log('👂 Mention monitoring started (every 5 minutes - MAXIMUM responsiveness)');
+    console.log('👂 Mention monitoring started (every 15 minutes - Optimized for API limits)');
     
     // Check mentions immediately on startup (after 10 seconds)
     setTimeout(async () => {
@@ -303,24 +303,24 @@ class TwitterClient {
       console.log('🎯 Influencer monitoring disabled via config');
       return;
     }
-    // Check influencers every 30 minutes for aggressive engagement
+    // Check influencers every 60 minutes for sustainable engagement (was 30 min - too aggressive)
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('influencer')) {
-          console.log('⏸️ Skipping influencer check due to rate limits');
+          console.log('⏸️ Skipping influencer check due to rate limits - preserving quota');
           return;
         }
         await this.influencerMonitor.monitorAllInfluencers();
       } catch (error) {
         if (error.code === 429) {
-          console.log('⏳ Rate limited on influencer monitoring - waiting...');
+          console.log('⏳ Rate limited on influencer monitoring - extending delay...');
         } else {
           console.error('❌ Error in influencer monitoring:', error.message);
         }
       }
-    }, 30 * 60 * 1000); // Every 30 minutes for MAXIMUM coverage
+    }, 60 * 60 * 1000); // Every 60 minutes for sustainable API usage
 
-    console.log('🎯 Influencer monitoring started (every 30 minutes - MAXIMUM engagement)');
+    console.log('🎯 Influencer monitoring started (every 60 minutes - Optimized for API limits)');
     
     // Initial check after 2 minutes to let other services start first
     setTimeout(async () => {
@@ -776,69 +776,34 @@ class TwitterClient {
 
   async checkAndReplyToMentions() {
     try {
-      console.log('🔍 Checking for recent mentions and @fusakaai tags...');
+      console.log('🔍 Checking for recent mentions (API optimized)...');
       
-      // METHOD 1: Get recent mentions (MAXIMUM limit for comprehensive coverage)
+      // Get recent mentions (optimized limit for API sustainability)
       const mentions = await this.readWriteClient.v2.userMentionTimeline(
         process.env.TWITTER_USER_ID,
         { 
-          max_results: 100, // Increased to MAXIMUM to ensure we catch ALL mentions
-          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id', 'referenced_tweets'],
-          'user.fields': ['username', 'name'],
-          'expansions': ['author_id', 'referenced_tweets.id']
+          max_results: 25, // Reduced from 100 to preserve API quota
+          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id'],
+          'user.fields': ['username']
         }
       );
       
-      // METHOD 2: Search for @fusakaai mentions in tweets (broader coverage)
-      let searchMentions = null;
-      try {
-        searchMentions = await this.readWriteClient.v2.search('@fusakaai -is:retweet', {
-          max_results: 50,
-          'tweet.fields': ['created_at', 'author_id', 'text', 'conversation_id', 'in_reply_to_user_id'],
-          'user.fields': ['username', 'name'],
-          'expansions': ['author_id']
-        });
-        console.log(`🔎 Found ${searchMentions?.data?.length || 0} @fusakaai search results`);
-      } catch (searchError) {
-        console.log('⚠️ Search mentions failed (rate limit or API issue), using timeline only');
-      }
-      
-      // Record the API reads
+      // Record the API read (removed search API to preserve quota)
       this.rateLimiter.recordRead('mentions');
-      if (searchMentions) {
-        this.rateLimiter.recordRead('search');
-      }
       
-      // Combine all mentions from both sources
-      let allMentions = [];
-      
-      // Add timeline mentions
-      if (mentions && mentions.data && Array.isArray(mentions.data)) {
-        allMentions.push(...mentions.data);
-        console.log(`📬 Found ${mentions.data.length} timeline mentions`);
-      }
-      
-      // Add search mentions (avoiding duplicates)
-      if (searchMentions && searchMentions.data && Array.isArray(searchMentions.data)) {
-        const searchResults = searchMentions.data.filter(tweet => 
-          !allMentions.some(existing => existing.id === tweet.id)
-        );
-        allMentions.push(...searchResults);
-        console.log(`🔎 Added ${searchResults.length} unique search mentions`);
-      }
-      
-      if (allMentions.length === 0) {
+      // Process timeline mentions only (removed search to preserve API quota)
+      if (!mentions || !mentions.data || !Array.isArray(mentions.data)) {
         console.log('📭 No new mentions found');
         return;
       }
       
-      console.log(`📬 Total mentions to process: ${allMentions.length}`);
+      console.log(`📬 Found ${mentions.data.length} timeline mentions to process`);
 
       // Process mentions with deduplication and priority handling
       let processedCount = 0;
       
-      for (let i = 0; i < allMentions.length; i++) {
-        const mention = allMentions[i];
+      for (let i = 0; i < mentions.data.length; i++) {
+        const mention = mentions.data[i];
         
         // Skip if we've already processed this mention
         if (this.processedMentions.has(mention.id)) {

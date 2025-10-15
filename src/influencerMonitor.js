@@ -13,7 +13,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum, scaling, philosophy, governance',
         responseStyle: 'technical and respectful',
         priority: 'high',
-        maxRepliesPerDay: 3
+        maxRepliesPerDay: 5  // Increased from 3 to spread throughout day
       }],
       ['2312333412', { 
         username: 'ethereum', 
@@ -21,7 +21,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum updates, ecosystem news',
         responseStyle: 'supportive and informative',
         priority: 'high',
-        maxRepliesPerDay: 2
+        maxRepliesPerDay: 4  // Increased from 2 to spread throughout day
       }],
       ['18060226', { 
         username: 'josephlubin', 
@@ -376,14 +376,14 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
     
     const orderedIds = [...highPriority, ...mediumPriority, ...lowPriority];
     
-    // Monitor up to 10 influencers per cycle for maximum coverage (was 5)
-    const toMonitor = orderedIds.slice(0, 10);
+    // Monitor up to 6 influencers per cycle for API sustainability (reduced from 10)
+    const toMonitor = orderedIds.slice(0, 6);
     
     for (const userId of toMonitor) {
       await this.monitorInfluencer(userId);
       
-      // Reduced wait time between checks for faster coverage
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 3s to 2s
+      // Increased wait time to reduce API pressure
+      await new Promise(resolve => setTimeout(resolve, 4000)); // Increased from 2s to 4s
     }
     
     console.log('✅ Influencer monitoring cycle complete');
