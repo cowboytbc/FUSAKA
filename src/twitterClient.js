@@ -229,7 +229,8 @@ class TwitterClient {
         await this.checkAndReplyToMentions();
       } catch (error) {
         if (error.code === 429) {
-          console.log('⏳ Rate limited on mentions - extending delay...');
+          console.log('⏳ Rate limited on mentions - entering cooldown...');
+          this.rateLimiter.handle429Error();
         } else {
           console.error('❌ Error checking mentions:', error.message);
         }
@@ -303,7 +304,7 @@ class TwitterClient {
       console.log('🎯 Influencer monitoring disabled via config');
       return;
     }
-    // Check influencers every 60 minutes for sustainable engagement (was 30 min - too aggressive)
+    // Check influencers every 2 hours for extreme API conservation (was 60 min - still too aggressive)
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('influencer')) {
@@ -314,13 +315,14 @@ class TwitterClient {
       } catch (error) {
         if (error.code === 429) {
           console.log('⏳ Rate limited on influencer monitoring - extending delay...');
+          this.rateLimiter.handle429Error();
         } else {
           console.error('❌ Error in influencer monitoring:', error.message);
         }
       }
-    }, 60 * 60 * 1000); // Every 60 minutes for sustainable API usage
+    }, 120 * 60 * 1000); // Every 2 hours for extreme API conservation
 
-    console.log('🎯 Influencer monitoring started (every 60 minutes - Optimized for API limits)');
+    console.log('🎯 Influencer monitoring started (every 2 hours - Extreme API conservation)');
     
     // Initial check after 2 minutes to let other services start first
     setTimeout(async () => {

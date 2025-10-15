@@ -12,6 +12,11 @@ class TwitterRateLimiter {
     this.readsToday = 0;
     this.currentDay = new Date().getDate();
     
+    // 429 Error tracking and cooldown system
+    this.last429Error = 0;
+    this.consecutive429s = 0;
+    this.cooldownUntil = 0;
+    
     console.log(`🚦 Twitter Rate Limiter initialized:`);
     console.log(`📊 Monthly limits: ${this.monthlyLimit} tweets, ${this.monthlyReadLimit} reads`);
     console.log(`📅 Daily limits: ${this.dailyLimit} tweets, ${this.dailyReadLimit} reads`);
@@ -75,13 +80,23 @@ class TwitterRateLimiter {
   canRead(type = 'mentions') {
     this.checkAndResetCounters();
     
+    // Check if we're in cooldown period due to 429 errors
+    if (Date.now() < this.cooldownUntil) {
+      const remainingCooldown = Math.ceil((this.cooldownUntil - Date.now()) / 1000);
+      console.log(`🚫 In 429 cooldown period - ${remainingCooldown}s remaining`);
+      return false;
+    }
+    
+    // Much more conservative limits to avoid 429s
+    const conservativeDailyLimit = Math.floor(this.dailyReadLimit * 0.4); // Use only 40% of quota
+    
     if (this.readsThisMonth >= this.monthlyReadLimit) {
       console.log(`❌ Cannot read: Monthly read limit reached (${this.readsThisMonth}/${this.monthlyReadLimit})`);
       return false;
     }
     
-    if (this.readsToday >= this.dailyReadLimit) {
-      console.log(`❌ Cannot read: Daily read limit reached (${this.readsToday}/${this.dailyReadLimit})`);
+    if (this.readsToday >= conservativeDailyLimit) {
+      console.log(`❌ Cannot read: Conservative daily limit reached (${this.readsToday}/${conservativeDailyLimit})`);
       return false;
     }
     
@@ -96,6 +111,27 @@ class TwitterRateLimiter {
     console.log(`📖 Read recorded (${type}): Daily: ${this.readsToday}/${this.dailyReadLimit}, Monthly: ${this.readsThisMonth}/${this.monthlyReadLimit}`);
   }
 
+  // Handle 429 errors with exponential backoff
+  handle429Error() {
+    this.last429Error = Date.now();
+    this.consecutive429s++;
+    
+    // Exponential backoff: 2^consecutive429s minutes, max 60 minutes
+    const cooldownMinutes = Math.min(Math.pow(2, this.consecutive429s), 60);
+    this.cooldownUntil = Date.now() + (cooldownMinutes * 60 * 1000);
+    
+    console.log(`🚫 429 Error #${this.consecutive429s} - Cooldown for ${cooldownMinutes} minutes`);
+  }
+  
+  // Reset 429 tracking on successful API call
+  resetErrorTracking() {
+    if (this.consecutive429s > 0) {
+      console.log(`✅ API call successful - Resetting 429 error tracking`);
+      this.consecutive429s = 0;
+      this.cooldownUntil = 0;
+    }
+  }
+
   getStatus() {
     this.checkAndResetCounters();
     return {
@@ -103,7 +139,9 @@ class TwitterRateLimiter {
       dailyLimit: this.dailyLimit,
       monthlyUsed: this.tweetsThisMonth,
       monthlyLimit: this.monthlyLimit,
-      canTweet: this.canTweet('automated')
+      canTweet: this.canTweet('automated'),
+      consecutive429s: this.consecutive429s,
+      inCooldown: Date.now() < this.cooldownUntil
     };
   }
 }

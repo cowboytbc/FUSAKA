@@ -315,6 +315,7 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       });
       
       this.rateLimiter.recordRead('influencer');
+      this.rateLimiter.resetErrorTracking(); // Reset 429 tracking on success
       
       // Handle Twitter API v2 response structure
       const tweetsData = timeline._realData?.data || timeline.data;
@@ -373,7 +374,12 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       }
       
     } catch (error) {
-      console.error(`❌ Error monitoring @${this.influencers.get(userId)?.username}:`, error.message);
+      if (error.code === 429) {
+        this.rateLimiter.handle429Error();
+        console.error(`❌ Rate limited @${this.influencers.get(userId)?.username} - entering cooldown`);
+      } else {
+        console.error(`❌ Error monitoring @${this.influencers.get(userId)?.username}:`, error.message);
+      }
     }
   }
   
@@ -403,14 +409,20 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       if (i < lowPriority.length) orderedIds.push(lowPriority[i]);
     }
     
-    // Monitor up to 6 influencers per cycle for API sustainability
-    const toMonitor = orderedIds.slice(0, 6);
+    // Monitor only 3 influencers per cycle for extreme API conservation (was 6)
+    const toMonitor = orderedIds.slice(0, 3);
     
     for (const userId of toMonitor) {
+      // Check rate limits before each influencer
+      if (!this.rateLimiter.canRead('influencer')) {
+        console.log('⏸️ Breaking influencer cycle - rate limit reached');
+        break;
+      }
+      
       await this.monitorInfluencer(userId);
       
-      // Increased wait time to reduce API pressure
-      await new Promise(resolve => setTimeout(resolve, 4000)); // Increased from 2s to 4s
+      // Much longer wait time to reduce API pressure
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Increased from 4s to 10s
     }
     
     console.log('✅ Influencer monitoring cycle complete');
