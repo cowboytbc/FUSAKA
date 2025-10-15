@@ -133,6 +133,10 @@ class InfluencerMonitor {
     this.dailyEngagement = new Map();
     this.lastReset = new Date().getDate();
     
+    // Track processed tweets to avoid duplicate replies
+    this.processedTweets = new Set(); // Store tweet IDs we've already replied to
+    this.lastCleanup = Date.now(); // Track when we last cleaned up old tweet IDs
+    
     // Keywords that trigger higher engagement priority
     this.highPriorityKeywords = [
       'ethereum', 'eth', 'defi', 'l2', 'layer 2', 'scaling', 'rollup', 'zk',
@@ -194,12 +198,12 @@ class InfluencerMonitor {
                             (metrics.like_count || 0) > 50 ||
                             (metrics.reply_count || 0) > 5;
     
-    // Don't reply to very recent tweets (< 5 minutes) to avoid seeming too eager
+    // Prefer fresh content (2-30 minutes old) for better engagement
     const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
-    const isNotTooRecent = tweetAge > 5 * 60 * 1000; // 5 minutes
+    const isNotTooRecent = tweetAge > 2 * 60 * 1000; // 2 minutes (reduced from 5)
     
-    // Don't reply to very old tweets (> 4 hours)
-    const isNotTooOld = tweetAge < 4 * 60 * 60 * 1000; // 4 hours
+    // Don't reply to old tweets (> 2 hours) to stay relevant
+    const isNotTooOld = tweetAge < 2 * 60 * 60 * 1000; // 2 hours (reduced from 4)
     
     // Avoid threads/replies
     const isOriginalTweet = !tweet.in_reply_to_user_id;
@@ -303,9 +307,9 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       
       console.log(`🔍 Checking tweets from @${influencer.username}...`);
       
-      // Get recent tweets from this user
+      // Get recent tweets from this user (increased to get more options)
       const timeline = await this.twitterClient.readWriteClient.v2.userTimeline(userId, {
-        max_results: 5,
+        max_results: 10, // Increased from 5 to get more diverse content options
         'tweet.fields': ['created_at', 'public_metrics', 'in_reply_to_user_id', 'conversation_id'],
         exclude: ['retweets', 'replies']
       });
@@ -322,8 +326,17 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       
       console.log(`📊 Found ${tweetsData.length} tweets from @${influencer.username}`);
       
+      // Clean up old processed tweets periodically (every 24 hours)
+      this.cleanupProcessedTweets();
+      
       // Analyze each tweet for engagement potential
       for (const tweet of tweetsData) {
+        // Skip if we've already replied to this tweet
+        if (this.processedTweets.has(tweet.id)) {
+          console.log(`⏭️ Already replied to tweet ${tweet.id} from @${influencer.username}`);
+          continue;
+        }
+        
         const worthiness = this.analyzeEngagementWorthiness(tweet, influencer);
         
         console.log(`📊 Tweet worthiness for @${influencer.username}: ${worthiness.score}/8`);
@@ -340,6 +353,9 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
               await this.twitterClient.readWriteClient.v2.reply(response, tweet.id);
               this.rateLimiter.recordTweet('influencer_reply');
               this.recordEngagement(userId);
+              
+              // Mark this tweet as processed to avoid future duplicate replies
+              this.processedTweets.add(tweet.id);
               
               console.log(`✅ Replied to @${influencer.username}: "${response}"`);
               
@@ -365,18 +381,29 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
   async monitorAllInfluencers() {
     console.log('🎯 Starting influencer monitoring cycle...');
     
+    // Clean up old processed tweets
+    this.cleanupProcessedTweets();
+    
     // Convert to array and shuffle for random order
     const influencerIds = Array.from(this.influencers.keys());
     const shuffledIds = this.shuffleArray([...influencerIds]);
     
-    // Monitor high priority first, then others
-    const highPriority = shuffledIds.filter(id => this.influencers.get(id).priority === 'high');
-    const mediumPriority = shuffledIds.filter(id => this.influencers.get(id).priority === 'medium');
-    const lowPriority = shuffledIds.filter(id => this.influencers.get(id).priority === 'low');
+    // Monitor high priority first, then others, but rotate within priority levels
+    const highPriority = this.shuffleArray(shuffledIds.filter(id => this.influencers.get(id).priority === 'high'));
+    const mediumPriority = this.shuffleArray(shuffledIds.filter(id => this.influencers.get(id).priority === 'medium'));
+    const lowPriority = this.shuffleArray(shuffledIds.filter(id => this.influencers.get(id).priority === 'low'));
     
-    const orderedIds = [...highPriority, ...mediumPriority, ...lowPriority];
+    // Interleave priorities for better distribution
+    const orderedIds = [];
+    const maxLength = Math.max(highPriority.length, mediumPriority.length, lowPriority.length);
     
-    // Monitor up to 6 influencers per cycle for API sustainability (reduced from 10)
+    for (let i = 0; i < maxLength; i++) {
+      if (i < highPriority.length) orderedIds.push(highPriority[i]);
+      if (i < mediumPriority.length) orderedIds.push(mediumPriority[i]);
+      if (i < lowPriority.length) orderedIds.push(lowPriority[i]);
+    }
+    
+    // Monitor up to 6 influencers per cycle for API sustainability
     const toMonitor = orderedIds.slice(0, 6);
     
     for (const userId of toMonitor) {
@@ -389,6 +416,24 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
     console.log('✅ Influencer monitoring cycle complete');
   }
   
+  // Clean up old processed tweets to prevent memory bloat
+  cleanupProcessedTweets() {
+    const now = Date.now();
+    // Clean up every 24 hours
+    if (now - this.lastCleanup > 24 * 60 * 60 * 1000) {
+      console.log('🧹 Cleaning up old processed tweets...');
+      // Keep only the last 500 tweet IDs to prevent memory issues
+      if (this.processedTweets.size > 500) {
+        const tweetArray = Array.from(this.processedTweets);
+        // Keep the most recent 300 tweets (assuming newer IDs are larger)
+        const recentTweets = tweetArray.sort().slice(-300);
+        this.processedTweets = new Set(recentTweets);
+        console.log(`🧹 Cleaned up processed tweets, kept ${this.processedTweets.size} recent entries`);
+      }
+      this.lastCleanup = now;
+    }
+  }
+
   // Utility function to shuffle array
   shuffleArray(array) {
     const shuffled = [...array];
