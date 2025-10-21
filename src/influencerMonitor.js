@@ -13,7 +13,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum, scaling, philosophy, governance',
         responseStyle: 'technical and respectful',
         priority: 'high',
-        maxRepliesPerDay: 5  // Increased from 3 to spread throughout day
+        maxRepliesPerDay: 2  // Reduced from 5 to balance with others
       }],
       ['2312333412', { 
         username: 'ethereum', 
@@ -21,7 +21,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum updates, ecosystem news',
         responseStyle: 'supportive and informative',
         priority: 'high',
-        maxRepliesPerDay: 4  // Increased from 2 to spread throughout day
+        maxRepliesPerDay: 2  // Reduced from 4 to balance with others
       }],
       ['18060226', { 
         username: 'josephlubin', 
@@ -37,7 +37,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum research, DeFi, technical analysis',
         responseStyle: 'technical and analytical',
         priority: 'high',
-        maxRepliesPerDay: 2
+        maxRepliesPerDay: 2  // Increased for better distribution
       }],
       ['1729808723', { 
         username: 'aantonop', 
@@ -45,7 +45,7 @@ class InfluencerMonitor {
         expertise: 'Bitcoin, blockchain education, security',
         responseStyle: 'educational and thoughtful',
         priority: 'medium',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2  // Increased for better coverage
       }],
       ['1206316169894912000', { 
         username: 'timbeiko_', 
@@ -53,7 +53,7 @@ class InfluencerMonitor {
         expertise: 'Ethereum development, EIPs, protocol upgrades',
         responseStyle: 'technical and collaborative',
         priority: 'high',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2  // Increased for better distribution
       }],
       ['725293544137375744', { 
         username: 'RyanSAdams', 
@@ -61,7 +61,7 @@ class InfluencerMonitor {
         expertise: 'Bankless, DeFi, Ethereum ecosystem',
         responseStyle: 'enthusiastic and bullish',
         priority: 'medium',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2  // Increased for better coverage
       }],
       ['1721051', { 
         username: 'cdixon', 
@@ -69,7 +69,7 @@ class InfluencerMonitor {
         expertise: 'Web3, crypto investments, a16z',
         responseStyle: 'strategic and visionary',
         priority: 'medium',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2  // Increased for better coverage
       }],
       ['1448014334470057985', { 
         username: 'l3olanza', 
@@ -77,7 +77,7 @@ class InfluencerMonitor {
         expertise: 'DeFi, yield farming, protocols',
         responseStyle: 'yield-focused and practical',
         priority: 'medium',
-        maxRepliesPerDay: 1
+        maxRepliesPerDay: 2  // Increased for better coverage
       }],
       ['87853709', { 
         username: 'LauraShin', 
@@ -409,8 +409,8 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       if (i < lowPriority.length) orderedIds.push(lowPriority[i]);
     }
     
-    // Monitor only 3 influencers per cycle for extreme API conservation (was 6)
-    const toMonitor = orderedIds.slice(0, 3);
+    // Monitor 6 influencers per cycle for comprehensive coverage (was 3)
+    const toMonitor = orderedIds.slice(0, 6);
     
     for (const userId of toMonitor) {
       // Check rate limits before each influencer
@@ -421,8 +421,8 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       
       await this.monitorInfluencer(userId);
       
-      // Much longer wait time to reduce API pressure
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Increased from 4s to 10s
+      // Reduced wait time for better coverage while staying sustainable
+      await new Promise(resolve => setTimeout(resolve, 6000)); // Reduced from 10s to 6s
     }
     
     console.log('✅ Influencer monitoring cycle complete');
