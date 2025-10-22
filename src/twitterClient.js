@@ -38,7 +38,7 @@ class TwitterClient {
     // Configuration from environment
     this.config = {
       enabled: process.env.TWITTER_ENABLED === 'true',
-      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 15, // minutes - VIRAL MODE ACTIVATED
+      autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 120, // minutes - 2 hours for sustainable growth
       replyToMentions: process.env.TWITTER_REPLY_TO_MENTIONS === 'true',
       autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
@@ -212,7 +212,7 @@ class TwitterClient {
       }
     }, intervalMs);
 
-    console.log(`⏰ Automated tweets every ${this.config.autoTweetInterval} minutes`);
+    console.log(`⏰ Automated tweets every ${this.config.autoTweetInterval} minutes (${Math.round(24*60/this.config.autoTweetInterval)} tweets/day)`);
   }
 
   // Monitor mentions and reply
@@ -305,7 +305,7 @@ class TwitterClient {
       console.log('🎯 Influencer monitoring disabled via config');
       return;
     }
-    // Check influencers every 90 minutes for balanced coverage (was 2 hours - too slow)
+    // Check influencers every 60 minutes for better coverage (was 90 min - too slow)
     setInterval(async () => {
       try {
         if (!this.rateLimiter.canRead('influencer')) {
@@ -321,9 +321,9 @@ class TwitterClient {
           console.error('❌ Error in influencer monitoring:', error.message);
         }
       }
-    }, 90 * 60 * 1000); // Every 90 minutes for balanced coverage
+    }, 60 * 60 * 1000); // Every 60 minutes for better coverage
 
-    console.log('🎯 Influencer monitoring started (every 90 minutes - Balanced coverage)');
+    console.log('🎯 Influencer monitoring started (every 60 minutes - Enhanced coverage)');
     
     // Initial check after 2 minutes to let other services start first
     setTimeout(async () => {
@@ -965,6 +965,7 @@ class TwitterClient {
     const day = new Date().getDay();
     const isWeekend = [0, 6].includes(day);
     const isFriday = day === 5;
+    const isPeakHours = (hour >= 18 && hour <= 21); // Peak engagement hours
     
     // VIRAL TIMING STRATEGY
     if (hour >= 9 && hour <= 11) {

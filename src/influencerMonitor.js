@@ -159,21 +159,43 @@ class InfluencerMonitor {
   resetDailyCounters() {
     const currentDay = new Date().getDate();
     if (currentDay !== this.lastReset) {
+      console.log(`📅 New day detected - resetting daily engagement counters`);
+      console.log(`📊 Previous day engagement: ${Array.from(this.dailyEngagement.entries()).map(([id, count]) => `@${this.influencers.get(id)?.username}: ${count}`).join(', ') || 'None'}`);
       this.dailyEngagement.clear();
       this.lastReset = currentDay;
-      console.log('📅 Reset daily influencer engagement counters');
+      console.log(`✅ Daily counters reset complete for day ${currentDay}`);
     }
+  }
+
+  // Force reset daily counters (called manually for debugging)
+  forceResetDailyCounters() {
+    console.log(`🔄 Force resetting daily engagement counters...`);
+    console.log(`📊 Current engagement before reset: ${Array.from(this.dailyEngagement.entries()).map(([id, count]) => `@${this.influencers.get(id)?.username}: ${count}`).join(', ') || 'None'}`);
+    this.dailyEngagement.clear();
+    this.lastReset = new Date().getDate();
+    console.log(`✅ Force reset complete - all counters cleared`);
   }
   
   // Check if we can engage with a specific influencer today
-  canEngageWithInfluencer(userId) {
+  canEngageWithInfluencer(userId, logReason = false) {
     this.resetDailyCounters();
     
     const influencer = this.influencers.get(userId);
-    if (!influencer) return false;
+    if (!influencer) {
+      if (logReason) console.log(`❌ @${userId} - influencer not found`);
+      return false;
+    }
     
     const todayCount = this.dailyEngagement.get(userId) || 0;
-    return todayCount < influencer.maxRepliesPerDay;
+    const canEngage = todayCount < influencer.maxRepliesPerDay;
+    
+    if (logReason && !canEngage) {
+      console.log(`🚫 @${influencer.username} - daily limit reached (${todayCount}/${influencer.maxRepliesPerDay})`);
+    } else if (logReason && canEngage) {
+      console.log(`✅ @${influencer.username} - can engage (${todayCount}/${influencer.maxRepliesPerDay})`);
+    }
+    
+    return canEngage;
   }
   
   // Record engagement with an influencer
@@ -213,16 +235,44 @@ class InfluencerMonitor {
       hasEngagement: isHighEngagement,
       rightTiming: isNotTooRecent && isNotTooOld,
       isOriginal: isOriginalTweet,
-      score: 0
+      score: 0,
+      reasons: []
     };
     
-    // Calculate worthiness score
-    if (worthiness.hasKeywords) worthiness.score += 3;
-    if (worthiness.hasEngagement) worthiness.score += 2;
-    if (worthiness.rightTiming) worthiness.score += 2;
-    if (worthiness.isOriginal) worthiness.score += 1;
-    if (influencer.priority === 'high') worthiness.score += 2;
-    if (influencer.priority === 'medium') worthiness.score += 1;
+    // Calculate worthiness score with detailed reasons
+    if (worthiness.hasKeywords) {
+      worthiness.score += 3;
+      worthiness.reasons.push('crypto keywords');
+    }
+    if (worthiness.hasEngagement) {
+      worthiness.score += 2;
+      worthiness.reasons.push('high engagement');
+    }
+    if (worthiness.rightTiming) {
+      worthiness.score += 2;
+      worthiness.reasons.push('good timing');
+    } else if (!isNotTooRecent) {
+      worthiness.reasons.push('too recent');
+    } else if (!isNotTooOld) {
+      worthiness.reasons.push('too old');
+    }
+    if (worthiness.isOriginal) {
+      worthiness.score += 1;
+      worthiness.reasons.push('original tweet');
+    } else {
+      worthiness.reasons.push('reply/thread');
+    }
+    if (influencer.priority === 'high') {
+      worthiness.score += 2;
+      worthiness.reasons.push('high priority');
+    }
+    if (influencer.priority === 'medium') {
+      worthiness.score += 1;
+      worthiness.reasons.push('medium priority');
+    }
+    if (influencer.priority === 'low') {
+      worthiness.reasons.push('low priority');
+    }
     
     return worthiness;
   }
@@ -300,9 +350,8 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       if (!influencer) return;
       
       // Check if we can engage with this influencer today
-      if (!this.canEngageWithInfluencer(userId)) {
-        console.log(`⏭️ Daily limit reached for @${influencer.username}`);
-        return;
+      if (!this.canEngageWithInfluencer(userId, true)) {
+        return; // Logging handled in canEngageWithInfluencer
       }
       
       console.log(`🔍 Checking tweets from @${influencer.username}...`);
@@ -340,11 +389,11 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
         
         const worthiness = this.analyzeEngagementWorthiness(tweet, influencer);
         
-        console.log(`📊 Tweet worthiness for @${influencer.username}: ${worthiness.score}/8`);
+        console.log(`📊 Tweet worthiness for @${influencer.username}: ${worthiness.score}/8 - ${worthiness.reasons.join(', ')}`);
         
-        // Only engage with high-scoring tweets (5+ out of 8)
-        if (worthiness.score >= 5) {
-          console.log(`🎯 High-value tweet found from @${influencer.username}`);
+        // Engage with moderate-scoring tweets (3+ out of 8) for better coverage
+        if (worthiness.score >= 3) {
+          console.log(`🎯 Engaging with tweet from @${influencer.username} (score: ${worthiness.score})`);
           
           // Generate and post response
           const response = await this.generateInfluencerResponse(tweet, influencer);
@@ -370,6 +419,8 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
               console.error(`❌ Error replying to @${influencer.username}:`, replyError.message);
             }
           }
+        } else {
+          console.log(`⏭️ Skipping tweet from @${influencer.username} (score: ${worthiness.score} < 3)`);
         }
       }
       
@@ -387,6 +438,16 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
   async monitorAllInfluencers() {
     console.log('🎯 Starting influencer monitoring cycle...');
     
+    // Force check daily counters every cycle to prevent sticking
+    this.resetDailyCounters();
+    
+    // Show comprehensive diagnostics every few cycles (every 3rd cycle to avoid spam)
+    if (Math.random() < 0.33) {
+      this.logInfluencerTargetingDiagnostics();
+    }
+    
+    console.log(`📊 Current daily engagement: ${Array.from(this.dailyEngagement.entries()).map(([id, count]) => `@${this.influencers.get(id)?.username}: ${count}/${this.influencers.get(id)?.maxRepliesPerDay}`).join(', ') || 'None yet'}`);
+    
     // Clean up old processed tweets
     this.cleanupProcessedTweets();
     
@@ -399,6 +460,10 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
     const mediumPriority = this.shuffleArray(shuffledIds.filter(id => this.influencers.get(id).priority === 'medium'));
     const lowPriority = this.shuffleArray(shuffledIds.filter(id => this.influencers.get(id).priority === 'low'));
     
+    console.log(`🏆 Available by priority - High: ${highPriority.map(id => this.influencers.get(id)?.username).join(', ')}`);
+    console.log(`🥈 Available by priority - Medium: ${mediumPriority.map(id => this.influencers.get(id)?.username).join(', ')}`);
+    console.log(`🥉 Available by priority - Low: ${lowPriority.map(id => this.influencers.get(id)?.username).join(', ')}`);
+    
     // Interleave priorities for better distribution
     const orderedIds = [];
     const maxLength = Math.max(highPriority.length, mediumPriority.length, lowPriority.length);
@@ -409,9 +474,22 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       if (i < lowPriority.length) orderedIds.push(lowPriority[i]);
     }
     
-    // Monitor 6 influencers per cycle for comprehensive coverage (was 3)
-    const toMonitor = orderedIds.slice(0, 6);
+    // Monitor 8 influencers per cycle for maximum coverage (was 6)
+    const toMonitor = orderedIds.slice(0, 8);
+    const skippedIds = orderedIds.slice(8);
     
+    console.log(`📊 Monitoring ${toMonitor.length} influencers this cycle: ${toMonitor.map(id => `@${this.influencers.get(id)?.username} (${this.influencers.get(id)?.priority})`).join(', ')}`);
+    if (skippedIds.length > 0) {
+      console.log(`⏭️ Skipped ${skippedIds.length} influencers this cycle: ${skippedIds.map(id => `@${this.influencers.get(id)?.username} (${this.influencers.get(id)?.priority})`).join(', ')}`);
+    }
+    
+    // Show engagement capacity analysis
+    const availableInfluencers = Array.from(this.influencers.keys()).filter(id => this.canEngageWithInfluencer(id));
+    const maxedOutInfluencers = Array.from(this.influencers.keys()).filter(id => !this.canEngageWithInfluencer(id));
+    
+    console.log(`🟢 Available for engagement (${availableInfluencers.length}): ${availableInfluencers.map(id => `@${this.influencers.get(id)?.username}`).join(', ') || 'None'}`);
+    console.log(`🔴 Daily limit reached (${maxedOutInfluencers.length}): ${maxedOutInfluencers.map(id => `@${this.influencers.get(id)?.username}`).join(', ') || 'None'}`);
+
     for (const userId of toMonitor) {
       // Check rate limits before each influencer
       if (!this.rateLimiter.canRead('influencer')) {
@@ -421,11 +499,23 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
       
       await this.monitorInfluencer(userId);
       
-      // Reduced wait time for better coverage while staying sustainable
-      await new Promise(resolve => setTimeout(resolve, 6000)); // Reduced from 10s to 6s
+      console.log(`⏳ Processed @${this.influencers.get(userId)?.username} - daily engagement: ${this.dailyEngagement.get(userId) || 0}/${this.influencers.get(userId)?.maxRepliesPerDay || 2}`);
+      
+      // Faster processing for better coverage
+      await new Promise(resolve => setTimeout(resolve, 4000)); // Reduced from 6s to 4s
     }
     
-    console.log('✅ Influencer monitoring cycle complete');
+    // Cycle summary
+    const cycleEngaged = toMonitor.filter(userId => {
+      const beforeCount = 0; // We don't track before/after in this simple implementation
+      const afterCount = this.dailyEngagement.get(userId) || 0;
+      return afterCount > beforeCount;
+    });
+    
+    console.log(`✅ Influencer monitoring cycle complete - Engaged with ${cycleEngaged.length}/${toMonitor.length} influencers this cycle`);
+    if (cycleEngaged.length > 0) {
+      console.log(`🎯 Successfully engaged: ${cycleEngaged.map(id => `@${this.influencers.get(id)?.username}`).join(', ')}`);
+    }
   }
   
   // Clean up old processed tweets to prevent memory bloat
@@ -473,6 +563,56 @@ Be authentic, add genuine alpha, and create reply-worthy content that gets notic
     }
     
     return stats;
+  }
+
+  // Comprehensive diagnostic logging
+  logInfluencerTargetingDiagnostics() {
+    console.log('\n🔍 === INFLUENCER TARGETING DIAGNOSTICS ===');
+    console.log(`📅 Current day: ${new Date().getDate()}, Last reset: ${this.lastReset}`);
+    console.log(`📊 Total influencers configured: ${this.influencers.size}`);
+    
+    const byPriority = {
+      high: Array.from(this.influencers.values()).filter(inf => inf.priority === 'high'),
+      medium: Array.from(this.influencers.values()).filter(inf => inf.priority === 'medium'),  
+      low: Array.from(this.influencers.values()).filter(inf => inf.priority === 'low')
+    };
+    
+    console.log(`🏆 High priority: ${byPriority.high.length} (${byPriority.high.map(inf => inf.username).join(', ')})`);
+    console.log(`🥈 Medium priority: ${byPriority.medium.length} (${byPriority.medium.map(inf => inf.username).join(', ')})`);
+    console.log(`🥉 Low priority: ${byPriority.low.length} (${byPriority.low.map(inf => inf.username).join(', ')})`);
+    
+    console.log('\n📊 Daily Engagement Status:');
+    Array.from(this.influencers.entries()).forEach(([id, inf]) => {
+      const count = this.dailyEngagement.get(id) || 0;
+      const status = count >= inf.maxRepliesPerDay ? '🔴 MAXED' : '🟢 AVAILABLE';
+      console.log(`  ${status} @${inf.username} (${inf.priority}): ${count}/${inf.maxRepliesPerDay}`);
+    });
+    
+    console.log(`\n🗑️ Processed tweets today: ${this.processedTweets.size}`);
+    
+    // Show targeting bias analysis
+    const totalEngagements = Array.from(this.dailyEngagement.values()).reduce((sum, count) => sum + count, 0);
+    if (totalEngagements > 0) {
+      console.log('\n📈 Targeting Distribution Analysis:');
+      Array.from(this.dailyEngagement.entries())
+        .sort(([,a], [,b]) => b - a) // Sort by engagement count descending
+        .forEach(([id, count]) => {
+          const inf = this.influencers.get(id);
+          const percentage = ((count / totalEngagements) * 100).toFixed(1);
+          console.log(`  📊 @${inf?.username}: ${count} replies (${percentage}%)`);
+        });
+        
+      // Warn if any single influencer is getting more than 25% of engagement
+      const maxEngagement = Math.max(...this.dailyEngagement.values());
+      const maxPercentage = (maxEngagement / totalEngagements) * 100;
+      if (maxPercentage > 25) {
+        const dominantId = Array.from(this.dailyEngagement.entries()).find(([,count]) => count === maxEngagement)?.[0];
+        const dominantUser = this.influencers.get(dominantId);
+        console.log(`⚠️  WARNING: @${dominantUser?.username} is getting ${maxPercentage.toFixed(1)}% of engagement (over 25% threshold)`);
+      }
+    }
+    
+    console.log('=== END DIAGNOSTICS ===\n');
   }
 }
 

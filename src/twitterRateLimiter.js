@@ -87,8 +87,8 @@ class TwitterRateLimiter {
       return false;
     }
     
-    // Much more conservative limits to avoid 429s
-    const conservativeDailyLimit = Math.floor(this.dailyReadLimit * 0.4); // Use only 40% of quota
+    // Balanced limits for good coverage while avoiding 429s
+    const conservativeDailyLimit = Math.floor(this.dailyReadLimit * 0.7); // Use 70% of quota for better coverage
     
     if (this.readsThisMonth >= this.monthlyReadLimit) {
       console.log(`❌ Cannot read: Monthly read limit reached (${this.readsThisMonth}/${this.monthlyReadLimit})`);
@@ -96,7 +96,7 @@ class TwitterRateLimiter {
     }
     
     if (this.readsToday >= conservativeDailyLimit) {
-      console.log(`❌ Cannot read: Conservative daily limit reached (${this.readsToday}/${conservativeDailyLimit})`);
+      console.log(`❌ Cannot read: Daily limit reached (${this.readsToday}/${conservativeDailyLimit}) - 70% of quota used`);
       return false;
     }
     
