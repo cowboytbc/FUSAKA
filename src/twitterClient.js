@@ -40,7 +40,7 @@ class TwitterClient {
       enabled: process.env.TWITTER_ENABLED === 'true',
       autoTweetInterval: parseInt(process.env.TWITTER_AUTO_TWEET_INTERVAL) || 120, // minutes - 2 hours for sustainable growth
       replyToMentions: process.env.TWITTER_REPLY_TO_MENTIONS === 'true',
-      autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS === 'true',
+      autoMemeTweets: process.env.TWITTER_AUTO_MEME_TWEETS !== 'false', // Default enabled unless explicitly disabled
       priceUpdates: process.env.TWITTER_PRICE_UPDATES === 'true',
       marketUpdates: process.env.TWITTER_MARKET_UPDATES === 'true',
       replyToVitalik: process.env.TWITTER_REPLY_TO_VITALIK === 'true',
@@ -95,7 +95,16 @@ class TwitterClient {
 
   // Automated tweet scheduler
   startAutomatedTweets() {
-    if (!this.config.autoMemeTweets && !this.config.priceUpdates && !this.config.marketUpdates) return;
+    console.log(`🔍 Checking automated tweet configuration:`);
+    console.log(`  autoMemeTweets: ${this.config.autoMemeTweets}`);
+    console.log(`  priceUpdates: ${this.config.priceUpdates}`);
+    console.log(`  marketUpdates: ${this.config.marketUpdates}`);
+    
+    if (!this.config.autoMemeTweets && !this.config.priceUpdates && !this.config.marketUpdates) {
+      console.log('⚠️ Automated tweets DISABLED - No tweet types enabled');
+      console.log('💡 Enable with: TWITTER_AUTO_MEME_TWEETS=true or TWITTER_PRICE_UPDATES=true or TWITTER_MARKET_UPDATES=true');
+      return;
+    }
 
     const intervalMs = this.config.autoTweetInterval * 60 * 1000;
     
@@ -212,7 +221,8 @@ class TwitterClient {
       }
     }, intervalMs);
 
-    console.log(`⏰ Automated tweets every ${this.config.autoTweetInterval} minutes (${Math.round(24*60/this.config.autoTweetInterval)} tweets/day)`);
+    console.log(`⏰ Automated tweets ENABLED - every ${this.config.autoTweetInterval} minutes (${Math.round(24*60/this.config.autoTweetInterval)} tweets/day)`);
+    console.log(`🎯 Next automated tweet in ${this.config.autoTweetInterval} minutes at ${new Date(Date.now() + intervalMs).toLocaleTimeString()}`);
   }
 
   // Monitor mentions and reply
