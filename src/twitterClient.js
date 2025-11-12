@@ -186,9 +186,6 @@ class TwitterClient {
           case 'community_callout':
             await this.postCommunityCallout();
             break;
-          case 'viral_thread':
-            await this.postViralThread();
-            break;
           case 'hot_take':
             await this.postHotTake();
             break;
@@ -761,7 +758,7 @@ class TwitterClient {
         
         const randomTopic = topics[Math.floor(Math.random() * topics.length)];
         
-        const prompt = `Create an engaging crypto Twitter thread starter about: ${randomTopic}. Reference current ETH price of $${ethPrice.price}. Include hot takes, predictions, or questions that spark discussion. Be thought-provoking and add value. Use crypto Twitter language. Max 240 chars before hashtags.`;
+        const prompt = `Create an engaging crypto tweet about: ${randomTopic}. Reference current ETH price of $${ethPrice.price}. Include hot takes, predictions, or questions that spark discussion. Be thought-provoking and add value. Use crypto Twitter language. Max 240 chars.`;
         
         const insight = await this.grokClient.generateResponse(prompt);
         const tweetText = `${insight}\n\n💭 What's your take? 👇\n\n#Ethereum #FUSAKA #Crypto #DeFi`;
@@ -955,7 +952,7 @@ class TwitterClient {
       
       const randomTopic = generalTopics[Math.floor(Math.random() * generalTopics.length)];
       
-      const prompt = `Create an engaging crypto Twitter thread starter about: ${randomTopic}. No price references needed. Include hot takes, predictions, or thought-provoking questions. Be insightful and spark discussion. Use crypto Twitter language. Max 240 chars before hashtags.`;
+      const prompt = `Create an engaging crypto tweet about: ${randomTopic}. No price references needed. Include hot takes, predictions, or thought-provoking questions. Be insightful and spark discussion. Use crypto Twitter language. Max 240 chars.`;
       
       const insight = await this.grokClient.generateResponse(prompt);
       const tweetText = `${insight}\n\n💭 What's your take? 👇\n\n#Ethereum #FUSAKA #Crypto #Web3`;
@@ -988,8 +985,8 @@ class TwitterClient {
       // Afternoon - market analysis and community engagement
       return Math.random() < 0.5 ? 'price' : 'community_callout';
     } else if (hour >= 18 && hour <= 21) {
-      // Peak engagement hours - maximum viral content
-      return Math.random() < 0.4 ? 'viral_thread' : 'hot_take';
+      // Peak engagement hours - maximum viral content (removed viral_thread)
+      return 'hot_take';
     } else if (isFriday && hour >= 16) {
       // Friday evening - weekend hype mode!
       return Math.random() < 0.7 ? 'hot_take' : 'viral_prediction';
@@ -1141,10 +1138,10 @@ class TwitterClient {
       ];
       
       const topic = topics[Math.floor(Math.random() * topics.length)];
-      const prompt = `Write an insightful Twitter thread starter about: ${topic}. Make it accessible yet technical. Include a thought-provoking question or controversial take. Explain WHY this matters for Ethereum's future. Be engaging and educational. Max 240 chars.`;
+      const prompt = `Write an insightful tweet about: ${topic}. Make it accessible yet technical. Include a thought-provoking question or controversial take. Explain WHY this matters for Ethereum's future. Be engaging and educational. Max 240 chars.`;
       
       const insight = await this.grokClient.generateResponse(prompt);
-      let tweetText = `${insight}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Blockchain #Tech`;
+      let tweetText = `${insight}\n\nThoughts? 👇\n\n#Ethereum #Blockchain #Tech`;
       
       // Add smart tags for technical content
       tweetText = this.smartTagger.addTagsToTweet(tweetText, 'technical');
@@ -1158,7 +1155,7 @@ class TwitterClient {
         console.log(`🐦 Tweet ID: ${result.data.id}`);
       } else {
         const truncatedContent = this.smartTruncate(insight, 240);
-        let truncatedTweet = `${truncatedContent}\n\n🧵 Thoughts? 👇\n\n#Ethereum #Tech`;
+        let truncatedTweet = `${truncatedContent}\n\nThoughts? 👇\n\n#Ethereum #Tech`;
         
         // Add smart tags to truncated version
         truncatedTweet = this.smartTagger.addTagsToTweet(truncatedTweet, 'technical');
@@ -1359,10 +1356,10 @@ class TwitterClient {
       ];
       
       const prediction = predictions[Math.floor(Math.random() * predictions.length)];
-      const prompt = `Create a viral Twitter thread starter: "${prediction}" Make it compelling with specific data points, controversial angles, and strong conviction. Include 2-3 specific reasons why this will happen. Be bold but credible. End with engagement hook. Max 240 chars.`;
+      const prompt = `Create a viral prediction: "${prediction}" Make it compelling with specific data points, controversial angles, and strong conviction. Include 2-3 specific reasons why this will happen. Be bold but credible. End with engagement hook. Max 240 chars.`;
       
       const content = await this.grokClient.generateResponse(prompt);
-      let tweetText = `${content}\n\n🧵 Thread below 👇\n\n#Ethereum #BoldPrediction #Web3`;
+      let tweetText = `${content}\n\nWhat do you think? 👇\n\n#Ethereum #BoldPrediction #Web3`;
       
       tweetText = this.smartTagger.addTagsToTweet(tweetText, 'viral');
       
@@ -1614,39 +1611,11 @@ class TwitterClient {
     }
   }
 
-  // Viral thread starter (placeholder - can expand to full thread logic)
-  async postViralThread() {
-    try {
-      console.log('🧵 Posting viral thread starter...');
-      
-      const threadTopics = [
-        'Why Ethereum will win the smart contract wars (10 reasons):',
-        'The DeFi summer timeline that nobody talks about:',
-        'How to go from zero to Ethereum developer in 90 days:',
-        'The Layer 2 wars explained (and who will win):',
-        'Why institutional money is quietly flooding into Ethereum:',
-        'The untold story of how Ethereum survived the bear market:',
-        'Breaking down Ethereum\'s roadmap in simple terms:',
-        'How Ethereum became the world computer (a timeline):'
-      ];
-      
-      const topic = threadTopics[Math.floor(Math.random() * threadTopics.length)];
-      const prompt = `Create a compelling thread starter: "${topic}" Make it irresistible to click. Promise specific value and insights. Include numbers or timeline. End with "Let's dive in 👇" Max 240 chars.`;
-      
-      const content = await this.grokClient.generateResponse(prompt);
-      let tweetText = `${content}\n\nLet's dive in 👇\n\n🧵 THREAD (1/10)\n\n#EthereumThread #Web3Education`;
-      
-      tweetText = this.smartTagger.addTagsToTweet(tweetText, 'thread');
-      
-      const result = await this.readWriteClient.v2.tweet({ text: tweetText });
-      this.rateLimiter.recordTweet('viral_thread');
-      this.trackTweet(result.data.id);
-      console.log('✅ Posted viral thread starter to Twitter');
-      console.log(`🐦 Tweet ID: ${result.data.id}`);
-    } catch (error) {
-      console.error('❌ Error posting viral thread:', error);
-    }
-  }
+  // Viral thread starter - DISABLED (was posting fake threads)
+  // async postViralThread() {
+  //   // This function was removed because it promised threads but didn't deliver actual thread content
+  //   console.log('� Viral thread posting is disabled - no fake thread promises');
+  // }
 
   // Community story - human connection
   async postCommunityStory() {
